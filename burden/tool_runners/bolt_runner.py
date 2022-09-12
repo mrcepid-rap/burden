@@ -24,8 +24,8 @@ class BOLTRunner(ToolRunner):
             for chromosome in get_chromosomes():
                 for tarball_prefix in self._association_pack.tarball_prefixes:
                     if exists(tarball_prefix + "." + chromosome + ".BOLT.bgen"):
-                        poss_chromosomes.write(f'/test/{tarball_prefix}.{chromosome}.bgen'
-                                               f' /test/{tarball_prefix}.{chromosome}.sample')
+                        poss_chromosomes.write(f'/test/{tarball_prefix}.{chromosome}.bgen '
+                                               f'/test/{tarball_prefix}.{chromosome}.sample\n')
                         thread_utility.launch_job(class_type=self._process_bolt_file,
                                                   tarball_prefix=tarball_prefix,
                                                   chromosome=chromosome)
@@ -93,8 +93,8 @@ class BOLTRunner(ToolRunner):
                 '--covarMaxLevels=110 ' \
                 '--LDscoresFile=BOLT-LMM_v2.3.6/tables/LDSCORE.1000G_EUR.tab.gz ' \
                 '--geneticMapFile=BOLT-LMM_v2.3.6/tables/genetic_map_hg19_withX.txt.gz ' \
-                '--lmmInfOnly ' \
-                f'--numThreads={str(self._association_pack.threads)} ' \
+                '--lmmForceNonInf ' \
+                f'--numThreads={self._association_pack.threads} ' \
                 f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
                 '--verboseStats ' \
                 '--bgenSampleFileList=/test/poss_chromosomes.txt ' \
@@ -124,7 +124,7 @@ class BOLTRunner(ToolRunner):
         transcripts_table = build_transcript_table()
 
         # Test what columns we have in the 'SNP' field so we can name them...
-        field_names = self._define_field_names_from_pandas(bolt_table_gene.iloc[0])
+        field_names = define_field_names_from_pandas(bolt_table_gene.iloc[0])
         bolt_table_gene[field_names] = bolt_table_gene['SNP'].str.split("-", expand=True)
         bolt_table_gene = bolt_table_gene.drop(columns=['SNP', 'CHR', 'BP', 'ALLELE1', 'ALLELE0', 'GENPOS'])
 

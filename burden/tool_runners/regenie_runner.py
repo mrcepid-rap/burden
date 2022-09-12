@@ -273,7 +273,7 @@ class REGENIERunner(ToolRunner):
                                                     'MASK', 'SUBSET', 'LOG10P'])
 
         # Get column names for Mask/MAF information if possible from the tarball name
-        regenie_table = self._define_field_names_from_tarball_prefix(tarball_prefix, regenie_table)
+        regenie_table = define_field_names_from_tarball_prefix(tarball_prefix, regenie_table)
 
         # Here we pull out all the various tests that were performed and make a separate table
         p_val_table = regenie_table.pivot(index='ENST', columns='TEST', values='PVALUE')

@@ -26,8 +26,9 @@ class GLMRunner(ToolRunner):
         for tarball_prefix in self._association_pack.tarball_prefixes:
             thread_utility.launch_job(linear_model.load_tarball_linear_model,
                                       tarball_prefix=tarball_prefix,
-                                      is_snp_tar=self._association_pack.is_snp_tar,
-                                      is_gene_tar=self._association_pack.is_gene_tar)
+                                      is_snp_tar=False,
+                                      is_gene_tar=False)
+
         future_results = thread_utility.collect_futures()
         genotype_packs = {}
         for result in future_results:

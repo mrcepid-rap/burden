@@ -30,8 +30,7 @@ class BGENInformation(TypedDict):
 
 class BurdenAssociationPack(AssociationPack):
 
-    def __init__(self, association_pack: AssociationPack,
-                 is_snp_tar: bool, is_gene_tar: bool, tarball_prefixes: List[str],
+    def __init__(self, association_pack: AssociationPack, tarball_prefixes: List[str],
                  bgen_dict: Dict[str, BGENInformation], run_marker_tests: bool):
 
         super().__init__(association_pack.pheno_files, association_pack.inclusion_found,
@@ -40,9 +39,6 @@ class BurdenAssociationPack(AssociationPack):
                          association_pack.pheno_names,
                          association_pack.found_quantitative_covariates, association_pack.found_categorical_covariates)
 
-        self.is_snp_tar = is_snp_tar
-        self.is_gene_tar = is_gene_tar
-        self.is_non_standard_tar = is_snp_tar or is_gene_tar
         self.tarball_prefixes = tarball_prefixes
         self.bgen_dict = bgen_dict
         self.run_marker_tests = run_marker_tests
