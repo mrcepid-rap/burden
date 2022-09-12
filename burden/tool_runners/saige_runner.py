@@ -201,7 +201,7 @@ class SAIGERunner(ToolRunner):
         saige_table = saige_table.drop(columns=['Group', 'max_MAF'])
 
         # Get column names for Mask/MAF information if possible
-        saige_table = self._define_field_names_from_tarball_prefix(tarball_prefix, saige_table)
+        saige_table = define_field_names_from_tarball_prefix(tarball_prefix, saige_table)
 
         return saige_table
 
