@@ -91,8 +91,8 @@ class BOLTRunner(ToolRunner):
                 '--qCovarCol=age_squared ' \
                 '--qCovarCol=PC{1:10} ' \
                 '--covarMaxLevels=110 ' \
-                '--LDscoresFile=BOLT-LMM_v2.3.6/tables/LDSCORE.1000G_EUR.tab.gz ' \
-                '--geneticMapFile=BOLT-LMM_v2.3.6/tables/genetic_map_hg19_withX.txt.gz ' \
+                '--LDscoresFile=BOLT-LMM_v2.4/tables/LDSCORE.1000G_EUR.tab.gz ' \
+                '--geneticMapFile=BOLT-LMM_v2.4/tables/genetic_map_hg19_withX.txt.gz ' \
                 '--lmmForceNonInf ' \
                 f'--numThreads={self._association_pack.threads} ' \
                 f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
