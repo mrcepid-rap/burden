@@ -78,6 +78,8 @@ class BOLTRunner(ToolRunner):
     # Run rare variant association testing using BOLT
     def _run_bolt(self) -> None:
 
+
+
         # See the README.md for more information on these parameters
         cmd = 'bolt ' + \
                 '--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
@@ -93,12 +95,16 @@ class BOLTRunner(ToolRunner):
                 '--covarMaxLevels=110 ' \
                 '--LDscoresFile=BOLT-LMM_v2.4/tables/LDSCORE.1000G_EUR.tab.gz ' \
                 '--geneticMapFile=BOLT-LMM_v2.4/tables/genetic_map_hg19_withX.txt.gz ' \
-                '--lmmForceNonInf ' \
                 f'--numThreads={self._association_pack.threads} ' \
                 f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
                 '--verboseStats ' \
                 '--bgenSampleFileList=/test/poss_chromosomes.txt ' \
                 f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz'
+
+        if self._association_pack.is_bolt_non_infinite:
+            cmd += ' --lmmForceNonInf'
+        else:
+            cmd += ' --lmmInfOnly'
 
         if len(self._association_pack.found_quantitative_covariates) > 0:
             for covar in self._association_pack.found_quantitative_covariates:
