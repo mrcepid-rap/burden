@@ -64,7 +64,7 @@ class BOLTRunner(ToolRunner):
         with open(f'{tarball_prefix}.{chromosome}.fixer', 'w') as fix_writer:
             pvar_reader = csv.DictReader(open(f'{tarball_prefix}.{chromosome}.pvar', 'r'), delimiter='\t')
             for variant_id in pvar_reader:
-                fix_writer.write(f'{variant_id["ID"]} {variant_id["ID"]}-{tarball_prefix}')
+                fix_writer.write(f'{variant_id["ID"]} {variant_id["ID"]}-{tarball_prefix}\n')
             fix_writer.close()
 
         cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-last\' ' \
