@@ -83,6 +83,11 @@ class LoadModule(ModuleLoader):
                                   help="Sparse GRM sample file with row/column names for 'sparse_grm'",
                                   type=self.dxfile_input, dest='sparse_grm_sample', required=True,
                                   metavar=example_dxfile)
+        self._parser.add_argument('--bolt_non_infinite',
+                                  help="Run bolt in non-infinitesimal mode (bolt flag '--lmmForceNonInf'). WARNING – "
+                                       "this can drastically increase runtimes, especially when analysing the "
+                                       "entire UKBB dataset.",
+                                  dest='bolt_non_infinite', action='store_true')
 
     def _parse_options(self) -> BurdenProgramArgs:
         return BurdenProgramArgs(**vars(self._parser.parse_args(self._input_args.split())))

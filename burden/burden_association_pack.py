@@ -18,6 +18,7 @@ class BurdenProgramArgs(ProgramArgs):
     low_MAC_list: dxpy.DXFile
     sparse_grm: dxpy.DXFile
     sparse_grm_sample: dxpy.DXFile
+    bolt_non_infinite: bool
 
 
 # A TypedDict holding information about each chromosome's available genetic data
@@ -31,7 +32,7 @@ class BGENInformation(TypedDict):
 class BurdenAssociationPack(AssociationPack):
 
     def __init__(self, association_pack: AssociationPack, tarball_prefixes: List[str],
-                 bgen_dict: Dict[str, BGENInformation], run_marker_tests: bool):
+                 bgen_dict: Dict[str, BGENInformation], run_marker_tests: bool, is_bolt_non_infinite: bool):
 
         super().__init__(association_pack.pheno_files, association_pack.inclusion_found,
                          association_pack.exclusion_found, association_pack.additional_covariates_found,
@@ -42,3 +43,4 @@ class BurdenAssociationPack(AssociationPack):
         self.tarball_prefixes = tarball_prefixes
         self.bgen_dict = bgen_dict
         self.run_marker_tests = run_marker_tests
+        self.is_bolt_non_infinite = is_bolt_non_infinite
