@@ -1,5 +1,5 @@
 # RunAssociationTesting – Burden
-TEST
+
 This is the source code for a module that is implemented in mrcepid-runassociationtesting.
 For more information about how to run or modify it, see https://github.com/mrcepid-rap/mrcepid-runassociationtesting.
 
