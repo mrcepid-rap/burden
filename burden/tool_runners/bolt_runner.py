@@ -78,8 +78,6 @@ class BOLTRunner(ToolRunner):
     # Run rare variant association testing using BOLT
     def _run_bolt(self) -> None:
 
-
-
         # See the README.md for more information on these parameters
         cmd = 'bolt ' + \
                 '--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
