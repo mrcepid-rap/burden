@@ -5,7 +5,27 @@ For more information about how to run or modify it, see https://github.com/mrcep
 
 ### Table of Contents
 
-T.B.D.
+- [Introduction](#introduction)
+  * [Changelog](#changelog)
+  * [Background](#background)
+    + [Burden Tools Implemented](#burden-tools-implemented)
+      - [1. [BOLT-LMM](https://alkesgroup.broadinstitute.org/BOLT-LMM/BOLT-LMM_manual.html)](#1-bolt-lmmhttpsalkesgroupbroadinstituteorgbolt-lmmbolt-lmm_manualhtml)
+      - [2. [SAIGE-GENE+](https://github.com/saigegit/SAIGE)](#2-saige-genehttpsgithubcomsaigegitsaige)
+      - [3. [STAAR](https://github.com/xihaoli/STAAR)](#3-staarhttpsgithubcomxihaolistaar)
+      - [4. [REGENIE](https://rgcgithub.github.io/regenie/)](#4-regeniehttpsrgcgithubgithubioregenie)
+      - [5. Generalised Linear Models (GLMs)](#5-generalised-linear-models-glms)
+- [Methodology](#methodology)
+    + [BOLT](#bolt)
+    + [SAIGE-GENE+](#saige-gene)
+    + [STAAR](#staar)
+    + [REGENIE](#regenie)
+    + [GLMs](#glms)
+- [Running on DNA Nexus](#running-on-dna-nexus)
+  * [Inputs](#inputs)
+    + [Association Tarballs](#association-tarballs)
+  * [Outputs](#outputs)
+    + [Per-gene output](#per-gene-output)
+    + [Per-marker output](#per-marker-output)
 
 ## Introduction
 
@@ -542,18 +562,19 @@ depending on the number of variants they have in a given gene/gene set.
 These inputs are specific to this module. If the option is not required, defaults for 
 each option are provided in **[bold brackets]**. Boolean options are flags, and change to 'true' when provided. 
 
-| input                   | Boolean? | Required? | description                                                                                                                                                                                             |
-|-------------------------|----------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| association_tarballs    | False    | **True**  | Hash ID(s) of the output from [mrcepid-collapsevariants](https://github.com/mrcepid-rap/mrcepid-collapsevariants) that you wish to use for rare variant burden testing. See below for more information. |
-| tool                    | False    | **True**  | Tool to use for the burden testing module. **MUST** be one of 'bolt', 'saige', 'staar', 'glm', or 'regenie'. Case must match.                                                                           |
-| run_marker_tests        | **True** | False     | run SAIGE/BOLT/REGENIE per-marker tests? Note that tests with SAIGE currently take a VERY long time. **[False]**                                                                                        |
-| bgen_index              | False    | **True**  | index file with information on filtered and annotated UKBB variants                                                                                                                                     |
-| bed_file                | False    | **True**  | plink .bed format file from UKBB genetic data, filtered according to [mrcepid-buildgrms](https://github.com/mrcepid-rap/mrcepid-buildgrms)                                                              |
-| fam_file                | False    | **True**  | corresponding .fam file for 'bed_file'                                                                                                                                                                  |
-| bim_file                | False    | **True**  | corresponding .bim file for 'bed_file'                                                                                                                                                                  |
-| low_MAC_list            | False    | **True**  | list of low MAC (<100) variants in 'bed_file'                                                                                                                                                           |
-| sparse_grm              | False    | **True**  | a sparse GRM for all individuals in 'bed_file' provided by [Bycroft et al.](https://www.nature.com/articles/s41586-018-0579-z)                                                                          |
-| sparse_grm_sample       | False    | **True**  | corresponding samples in 'sparse_grm'                                                                                                                                                                   |
+| input                | Boolean?  | Required?  | description                                                                                                                                                                                             |
+|----------------------|-----------|------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| association_tarballs | False     | **True**   | Hash ID(s) of the output from [mrcepid-collapsevariants](https://github.com/mrcepid-rap/mrcepid-collapsevariants) that you wish to use for rare variant burden testing. See below for more information. |
+| tool                 | False     | **True**   | Tool to use for the burden testing module. **MUST** be one of 'bolt', 'saige', 'staar', 'glm', or 'regenie'. Case must match.                                                                           |
+| run_marker_tests     | **True**  | False      | run SAIGE/BOLT/REGENIE per-marker tests? Note that tests with SAIGE currently take a VERY long time. **[False]**                                                                                        |
+| bgen_index           | False     | **True**   | index file with information on filtered and annotated UKBB variants                                                                                                                                     |
+| array_bed_file       | False     | **True**   | plink .bed format file from UKBB genetic data, filtered according to [mrcepid-buildgrms](https://github.com/mrcepid-rap/mrcepid-buildgrms)                                                              |
+| array_fam_file       | False     | **True**   | corresponding .fam file for 'bed_file'                                                                                                                                                                  |
+| array_bim_file       | False     | **True**   | corresponding .bim file for 'bed_file'                                                                                                                                                                  |
+| low_MAC_list         | False     | **True**   | list of low MAC (<100) variants in 'bed_file'                                                                                                                                                           |
+| sparse_grm           | False     | **True**   | a sparse GRM for all individuals in 'bed_file' provided by [Bycroft et al.](https://www.nature.com/articles/s41586-018-0579-z)                                                                          |
+| sparse_grm_sample    | False     | **True**   | corresponding samples in 'sparse_grm'                                                                                                                                                                   |
+| bolt_non_infinite    | **True**  | **False**  | Should BOLT be run with the flag `--lmmForceNonInf`? Only affects BOLT runs and may substantially increase runtime. **[False]**                                                                         |
 
 #### Association Tarballs
 
@@ -631,3 +652,30 @@ containing per-marker burden tests. An index for easy querying with tabix is als
 file `450k_vep.sorted.tsv.gz (file-G857Z4QJJv8x7GXfJ3y5v1qV)` in project `project-G6BJF50JJv8p4PjGB9yy7YQ2`. These columns 
 are identical to those provided by [mrcepid-annotatecadd](https://github.com/mrcepid-rap/mrcepid-annotatecadd#outputs).
 Note that this output is only produced for BOLT, SAIGE, or REGENIE, where requested.
+
+## Example Command
+
+This is a module for the mrcepid-runassociationtesting app. Example command to run a BOLT burden test:
+
+```commandline
+dx run app-mrcepid-runassociationtesting --priority low --destination results/ \ 
+        -imode=burden
+        -ioutput_prefix="T2D.bolt" \
+        -iinput_args=' \
+                --tool bolt \
+                --run_marker_tests \
+                --association_tarballs file-1234567890ABCDEFGHIJKLMN \
+                --phenofile file-1234567890ABCDEFGHIJKLMN \
+                --is_binary \
+                --inclusion_list file-1234567890ABCDEFGHIJKLMN \
+                --sex 2 \
+                --transcript_index file-1234567890ABCDEFGHIJKLMN \
+                --base_covariates file-1234567890ABCDEFGHIJKLMN \
+                --bgen_index file-1234567890ABCDEFGHIJKLMN \
+                --bed_file file-1234567890ABCDEFGHIJKLMN \
+                --fam_file file-1234567890ABCDEFGHIJKLMN \
+                --bim_file file-1234567890ABCDEFGHIJKLMN \
+                --low_MAC_list file-1234567890ABCDEFGHIJKLMN \
+                --sparse_grm file-1234567890ABCDEFGHIJKLMN \
+                --sparse_grm_sample file-1234567890ABCDEFGHIJKLMN`
+```
