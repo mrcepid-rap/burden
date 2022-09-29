@@ -195,7 +195,7 @@ class REGENIERunner(ToolRunner):
                   f'--out /test/REGENIE_extract'
 
             if self._association_pack.regenie_snps_file is not None:
-                cmd += f' --extract {str(self._association_pack.regenie_snps_file.resolve())}'
+                cmd += f' --extract /test/{str(self._association_pack.regenie_snps_file.resolve())}'
 
             run_cmd(cmd, True, stdout_file='plink_out.txt')
             with open('plink_out.txt', 'r') as plink_out:
