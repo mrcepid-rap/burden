@@ -1,3 +1,4 @@
+import re
 from os.path import exists
 
 from runassociationtesting.association_resources import *
@@ -200,7 +201,10 @@ class REGENIERunner(ToolRunner):
             run_cmd(cmd, True, stdout_file='plink_out.txt')
             with open('plink_out.txt', 'r') as plink_out:
                 for line in plink_out:
-                    print(f'{line}\n')
+                    found_snp_count = re.search('(\\d+) variants remaining after main filters', line)
+                    if found_snp_count is not None:
+                        print(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}')
+
                 plink_out.close()
 
         cmd = 'regenie ' \
