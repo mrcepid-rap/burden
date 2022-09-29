@@ -183,13 +183,20 @@ class REGENIERunner(ToolRunner):
                 n_samples += 1
             sample_file.close()
 
-            # And generate a SNP list for the --extract parameter of REGENIE
+            # And generate a SNP list for the --extract parameter of REGENIE, while considering SNPs from
+            # the regenie_smaller_snps input parameter (if provided). plink2 order of operations:
+            # 1. Select variants from --extract (if present)
+            # 2. THEN filter based on max/min AC (mac/max-mac)
             max_mac = (n_samples * 2) - 100
-            cmd = 'plink2 --bfile /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
-                  '--mac 100 ' \
-                  f'--max-mac {str(max_mac)}' + \
-                  ' --write-snplist ' \
-                  '--out /test/REGENIE_extract'
+            cmd = f'plink2 --bfile /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
+                  f'--min-ac 100 ' \
+                  f'--max-ac {str(max_mac)}' \
+                  f' --write-snplist ' \
+                  f'--out /test/REGENIE_extract'
+
+            if self._association_pack.regenie_snps_file is not None:
+                cmd += f' --extract {str(self._association_pack.regenie_snps_file.resolve())}'
+
             run_cmd(cmd, True)
 
         cmd = 'regenie ' \
@@ -204,7 +211,7 @@ class REGENIERunner(ToolRunner):
               f'--phenoCol {self._association_pack.pheno_names[0]} '
 
         cmd += self._define_covariate_string()
-        run_cmd(cmd, True, stdout_file=self._output_prefix + ".REGENIE_step1.log")
+        run_cmd(cmd, True, stdout_file=self._output_prefix + ".REGENIE_step1.log", print_cmd=True)
 
     def _run_regenie_step_two(self, tarball_prefix: str, chromosome: str) -> tuple:
 
