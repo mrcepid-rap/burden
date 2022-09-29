@@ -196,15 +196,14 @@ class REGENIERunner(ToolRunner):
                   f'--out /test/REGENIE_extract'
 
             if self._association_pack.regenie_snps_file is not None:
-                cmd += f' --extract /test/{str(self._association_pack.regenie_snps_file.resolve())}'
+                cmd += f' --extract /test/genetics/{self._association_pack.regenie_snps_file.name}'
 
             run_cmd(cmd, True, stdout_file='plink_out.txt')
             with open('plink_out.txt', 'r') as plink_out:
                 for line in plink_out:
                     found_snp_count = re.search('(\\d+) variants remaining after main filters', line)
                     if found_snp_count is not None:
-                        print(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}')
-
+                        print(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}\n')
                 plink_out.close()
 
         cmd = 'regenie ' \
