@@ -212,7 +212,7 @@ class REGENIERunner(ToolRunner):
               '--extract /test/REGENIE_extract.snplist ' \
               '--covarFile /test/phenotypes_covariates.formatted.txt ' \
               '--phenoFile /test/phenotypes_covariates.formatted.txt ' \
-              '--bsize 100 ' \
+              '--bsize 1000 ' \
               '--out /test/fit_out ' \
               f'--threads {str(self._association_pack.threads)} ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} '
@@ -236,7 +236,7 @@ class REGENIERunner(ToolRunner):
               '--mask-def /test/' + tarball_prefix + '.' + chromosome + '.REGENIE.maskfile.tsv ' \
               '--aaf-bins 1 ' \
               '--vc-tests skato-acat,acato-full ' \
-              '--bsize 200 ' \
+              '--bsize 400 ' \
               '--threads 1 ' \
               '--minMAC 1 ' \
               '--out /test/' + tarball_prefix + '.' + chromosome + ' '
