@@ -15,10 +15,10 @@ class REGENIERunner(ToolRunner):
         print("Running REGENIE step 1")
         self._run_regenie_step_one()
 
-        with Path('fit_out_pred.list').open('r') as pred_list:
-            for line in pred_list:
-                file = Path(line.rstrip())
-                print(f'File {file.resolve()} exists: {file.exists()}')
+        # Add the step1 files to output so we can use later if need-be:
+        self._outputs.extend(['fit_out_pred.list',
+                              'fit_out_1.loco'])
+        print(f'fit_out_1.loco exists? {Path("fit_out_1.loco").exists()}')
 
         # 2. Prep bgen files for a run:
         print("Downloading and filtering raw bgen files")
@@ -106,13 +106,6 @@ class REGENIERunner(ToolRunner):
         # 6. Process outputs
         print("Processing REGENIE outputs...")
         self._outputs.extend(self._annotate_regenie_output(completed_gene_tables, completed_marker_chromosomes))
-
-        # Also add the step1 files so we can use later if need-be:
-        self._outputs.append('fit_out_pred.list')
-        with Path('fit_out_pred.list').open('r') as pred_list:
-            for line in pred_list:
-                line = line.rstrip()
-                self._outputs.append(line)
 
     # We need three files per chromosome-mask combination:
     # 1. Annotation file, which lists variants with gene and mask name
