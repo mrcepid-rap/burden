@@ -89,9 +89,8 @@ class REGENIERunner(ToolRunner):
                 thread_utility.launch_job(class_type=self._regenie_marker_run,
                                           chromosome=chromosome)
                 completed_marker_chromosomes.append(chromosome)
-            thread_utility.collect_futures()
-
             future_results = thread_utility.collect_futures()
+
             markers_log_file = open(self._output_prefix + '.REGENIE_markers.log', 'w')
             for result in future_results:
                 finished_chromosome = result
