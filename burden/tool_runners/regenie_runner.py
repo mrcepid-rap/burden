@@ -14,11 +14,9 @@ class REGENIERunner(ToolRunner):
         # 1. Run step 1 of regenie
         print("Running REGENIE step 1")
         self._run_regenie_step_one()
-
         # Add the step1 files to output so we can use later if need-be:
         self._outputs.extend(['fit_out_pred.list',
                               'fit_out_1.loco'])
-        print(f'fit_out_1.loco exists? {Path("fit_out_1.loco").exists()}')
 
         # 2. Prep bgen files for a run:
         print("Downloading and filtering raw bgen files")
@@ -37,7 +35,8 @@ class REGENIERunner(ToolRunner):
 
         # 3. Prep mask files
         print("Prepping mask files")
-        thread_utility = ThreadUtility(self._association_pack.threads, error_message='A REGENIE mask thread failed',
+        thread_utility = ThreadUtility(self._association_pack.threads,
+                                       error_message='A REGENIE mask thread failed',
                                        incrementor=10,
                                        thread_factor=1)
         for chromosome in get_chromosomes():
@@ -158,27 +157,6 @@ class REGENIERunner(ToolRunner):
             mask_file.write(tarball_prefix + '\t' + tarball_prefix + '\n')
             mask_file.close()
 
-    # Helper function to decide what covariates are included in the various REGENIE commands
-    def _define_covariate_string(self) -> str:
-
-        suffix = ''
-        if len(self._association_pack.found_quantitative_covariates) > 0:
-            quant_covars_join = ','.join(self._association_pack.found_quantitative_covariates)
-            suffix = suffix + '--covarColList PC{1:10},age,age_squared,sex,' + quant_covars_join + ' '
-        else:
-            suffix = suffix + '--covarColList PC{1:10},age,age_squared,sex '
-
-        if len(self._association_pack.found_categorical_covariates) > 0:
-            cat_covars_join = ','.join(self._association_pack.found_categorical_covariates)
-            suffix = suffix + '--catCovarList wes_batch,' + cat_covars_join + ' '
-        else:
-            suffix = suffix + '--catCovarList wes_batch '
-
-        if self._association_pack.is_binary:
-            suffix = suffix + '--bt --firth --approx'
-
-        return suffix
-
     def _run_regenie_step_one(self) -> None:
 
         # Need to define separate min/max MAC files for REGENIE as it defines them slightly differently from BOLT:
@@ -222,31 +200,35 @@ class REGENIERunner(ToolRunner):
               f'--threads {str(self._association_pack.threads)} ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} '
 
-        cmd += self._define_covariate_string()
+        cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
+                                       self._association_pack.found_categorical_covariates,
+                                       self._association_pack.is_binary)
         run_cmd(cmd, True, stdout_file=self._output_prefix + ".REGENIE_step1.log", print_cmd=True)
 
     def _run_regenie_step_two(self, tarball_prefix: str, chromosome: str) -> tuple:
 
         # Note – there is some issue with skato (in --vc-tests flag), so I have changed to skato-acat which works...?
-        cmd = 'regenie ' \
-              '--step 2 ' \
-              '--bgen /test/' + chromosome + '.markers.bgen ' \
-              '--sample /test/' + chromosome + '.markers.bolt.sample ' \
-              '--covarFile /test/phenotypes_covariates.formatted.txt ' \
-              '--phenoFile /test/phenotypes_covariates.formatted.txt ' \
-              '--phenoCol ' + self._association_pack.pheno_names[0] + ' ' \
-              '--pred /test/fit_out_pred.list ' \
-              '--anno-file /test/' + tarball_prefix + '.' + chromosome + '.REGENIE.annotationFile.tsv ' \
-              '--set-list /test/' + tarball_prefix + '.' + chromosome + '.REGENIE.setListFile.tsv ' \
-              '--mask-def /test/' + tarball_prefix + '.' + chromosome + '.REGENIE.maskfile.tsv ' \
-              '--aaf-bins 1 ' \
-              '--vc-tests skato-acat,acato-full ' \
-              '--bsize 400 ' \
-              '--threads 1 ' \
-              '--minMAC 1 ' \
-              '--out /test/' + tarball_prefix + '.' + chromosome + ' '
+        cmd = f'regenie ' \
+              f'--step 2 ' \
+              f'--bgen /test/{chromosome}.markers.bgen ' \
+              f'--sample /test/{chromosome}.markers.bolt.sample ' \
+              f'--covarFile /test/phenotypes_covariates.formatted.txt ' \
+              f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
+              f'--phenoCol {self._association_pack.pheno_names[0]} ' \
+              f'--pred /test/fit_out_pred.list ' \
+              f'--anno-file /test/{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv' \
+              f'--mask-def /test/{tarball_prefix}.{chromosome}.REGENIE.maskfile.tsv ' \
+              f'--set-list /test/{tarball_prefix}.{chromosome}.REGENIE.setListFile.tsv ' \
+              f'--aaf-bins 1 ' \
+              f'--vc-tests skato-acat,acato-full ' \
+              f'--bsize 400 ' \
+              f'--threads 1 ' \
+              f'--minMAC 1 ' \
+              f'--out /test/{tarball_prefix}.{chromosome} '
 
-        cmd += self._define_covariate_string()
+        cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
+                                       self._association_pack.found_categorical_covariates,
+                                       self._association_pack.is_binary)
 
         run_cmd(cmd, True, chromosome + ".REGENIE_markers.log")
 
@@ -266,7 +248,9 @@ class REGENIERunner(ToolRunner):
               '--threads 4 ' \
               '--out /test/' + chromosome + '.markers.REGENIE '
 
-        cmd += self._define_covariate_string()
+        cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
+                                       self._association_pack.found_categorical_covariates,
+                                       self._association_pack.is_binary)
         run_cmd(cmd, True, chromosome + ".REGENIE_markers.log")
 
         return chromosome
