@@ -2,7 +2,7 @@ import tarfile
 
 from os.path import exists
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 
 from burden.burden_association_pack import BurdenAssociationPack, BGENInformation, \
     BurdenProgramArgs
