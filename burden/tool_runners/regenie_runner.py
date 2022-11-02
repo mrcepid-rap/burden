@@ -195,6 +195,7 @@ class REGENIERunner(ToolRunner):
               '--extract /test/REGENIE_extract.snplist ' \
               '--covarFile /test/phenotypes_covariates.formatted.txt ' \
               '--phenoFile /test/phenotypes_covariates.formatted.txt ' \
+              '--maxCatLevels 100 ' \
               '--bsize 1000 ' \
               '--out /test/fit_out ' \
               f'--threads {str(self._association_pack.threads)} ' \
@@ -224,6 +225,7 @@ class REGENIERunner(ToolRunner):
               f'--bsize 400 ' \
               f'--threads 1 ' \
               f'--minMAC 1 ' \
+              f'--maxCatLevels 100 ' \
               f'--out /test/{tarball_prefix}.{chromosome} '
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
