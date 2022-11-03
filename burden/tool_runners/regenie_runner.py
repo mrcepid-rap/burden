@@ -217,7 +217,7 @@ class REGENIERunner(ToolRunner):
               f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
               f'--pred /test/fit_out_pred.list ' \
-              f'--anno-file /test/{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv' \
+              f'--anno-file /test/{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv ' \
               f'--mask-def /test/{tarball_prefix}.{chromosome}.REGENIE.maskfile.tsv ' \
               f'--set-list /test/{tarball_prefix}.{chromosome}.REGENIE.setListFile.tsv ' \
               f'--aaf-bins 1 ' \
