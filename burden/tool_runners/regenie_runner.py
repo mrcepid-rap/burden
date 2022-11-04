@@ -204,7 +204,7 @@ class REGENIERunner(ToolRunner):
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
                                        self._association_pack.is_binary)
-        run_cmd(cmd, True, stdout_file=self._output_prefix + ".REGENIE_step1.log", print_cmd=True)
+        run_cmd(cmd, True, stdout_file=self._output_prefix + ".REGENIE_step1.log")
 
     def _run_regenie_step_two(self, tarball_prefix: str, chromosome: str) -> tuple:
 
@@ -238,17 +238,18 @@ class REGENIERunner(ToolRunner):
 
     def _regenie_marker_run(self, chromosome: str) -> str:
 
-        cmd = 'regenie ' \
-              '--step 2 ' \
-              '--bgen /test/' + chromosome + '.markers.bgen ' \
-              '--sample /test/' + chromosome + '.markers.bolt.sample ' \
-              '--covarFile /test/phenotypes_covariates.formatted.txt ' \
-              '--phenoFile /test/phenotypes_covariates.formatted.txt ' \
-              '--phenoCol ' + self._association_pack.pheno_names[0] + ' ' \
-              '--pred /test/fit_out_pred.list ' \
-              '--bsize 200 ' \
-              '--threads 4 ' \
-              '--out /test/' + chromosome + '.markers.REGENIE '
+        cmd = f'regenie ' \
+              f'--step 2 ' \
+              f'--bgen /test/{chromosome}.markers.bgen ' \
+              f'--sample /test/{chromosome}.markers.bolt.sample ' \
+              f'--covarFile /test/phenotypes_covariates.formatted.txt ' \
+              f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
+              f'--phenoCol {self._association_pack.pheno_names[0]} ' \
+              f'--pred /test/fit_out_pred.list ' \
+              f'--maxCatLevels 100 ' \
+              f'--bsize 200 ' \
+              f'--threads 4 ' \
+              f'--out /test/{chromosome}.markers.REGENIE '
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
