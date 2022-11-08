@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, Dict
 
 from burden.burden_association_pack import BurdenAssociationPack, BGENInformation, \
-    BurdenProgramArgs
+    BurdenProgramArgs, DosageInformation
 from runassociationtesting.ingest_data import *
 
 
@@ -22,7 +22,20 @@ class BurdenIngestData(IngestData):
         if is_snp_tar or is_gene_tar:
             raise dxpy.AppError('The burden module is not compatible with SNP or GENE masks!')
 
-        bgen_dict = self._ingest_bgen(parsed_options.bgen_index)
+        if parsed_options.bgen_index:
+            bgen_dict = self._ingest_bgen(parsed_options.bgen_index)
+            dosage_dict = None
+        elif parsed_options.dosage_index:
+            if parsed_options.tool is "bolt":
+                bgen_dict = None
+                dosage_dict = self._ingest_dosage(parsed_options.dosage_index)
+            else:
+                raise dxpy.AppError('Dosage file format is currently only compatible with BOLT-LMM!')
+
+            if parsed_options.run_marker_tests:
+                raise dxpy.AppError('Dosage file format is not currently compatible with the \'--run_marker_tests\' flag!')
+        else:
+            raise dxpy.AppError('Either --bgen_index or --dosage_index MUST be supplied!')
 
         self._ingest_genetic_data(parsed_options.array_bed_file,
                                   parsed_options.array_fam_file,
@@ -36,7 +49,8 @@ class BurdenIngestData(IngestData):
 
         # Put additional covariate processing specific to this module here
         self.set_association_pack(BurdenAssociationPack(self.get_association_pack(),
-                                                        tarball_prefixes, bgen_dict, parsed_options.run_marker_tests,
+                                                        tarball_prefixes, bgen_dict, dosage_dict,
+                                                        parsed_options.run_marker_tests,
                                                         parsed_options.bolt_non_infinite, regenie_snps_file))
 
     # Need to grab the tarball file for associations...
@@ -105,6 +119,30 @@ class BurdenIngestData(IngestData):
                                         'bgen': line['bgen_dxid'],
                                         'vep': line['vep_dxid']}
         return bgen_dict
+
+    @staticmethod
+    def _ingest_dosage(dosage_index: dxpy.DXFile) -> Dict[str, DosageInformation]:
+
+        # Ingest the INDEX of Dosage files:
+        dxpy.download_dxfile(dosage_index.get_id(), "dosage_locs.tsv")
+        # And load it into a dict – unlike with bgen, we can d/l now since the file size is much smaller:
+        dosage_dir = Path("filtered_dosage/")
+        dosage_dir.mkdir()
+
+        dosage_index_csv = csv.DictReader(Path("dosage_locs.tsv").open("r"), delimiter="\t")
+        dosage_dict = {}
+        for line in dosage_index_csv:
+            dosage_path = dosage_dir.joinpath(Path(f'{line["chrom"]}.dosage'))
+            sample_path = dosage_dir.joinpath(Path(f'{line["chrom"]}.sample'))
+            info_path = dosage_dir.joinpath(Path(f'{line["chrom"]}.info'))
+            dxpy.download_dxfile(dxpy.DXFile(line['dosage_dxid']).get_id(), f'{dosage_path.resolve()}')
+            dxpy.download_dxfile(dxpy.DXFile(line['sample_dxid']).get_id(), f'{sample_path.resolve()}')
+            dxpy.download_dxfile(dxpy.DXFile(line['info_dxid']).get_id(), f'{info_path.resolve()}')
+            dosage_dict[line['chrom']] = {'dosage': dosage_path,
+                                          'sample': sample_path,
+                                          'info': info_path}
+
+        return dosage_dict
 
     @staticmethod
     def _ingest_genetic_data(bed_file: dxpy.DXFile, fam_file: dxpy.DXFile, bim_file: dxpy.DXFile,
