@@ -57,7 +57,7 @@ class LoadModule(ModuleLoader):
                                   metavar=example_dxfile, default='None')
         self._parser.add_argument('--dosage_index',
                                   help="list of dosage files and associated sample/annotation",
-                                  type=self.dxfile_input, dest='bgen_index', required=False,
+                                  type=self.dxfile_input, dest='dosage_index', required=False,
                                   metavar=example_dxfile, default='None')
         self._parser.add_argument('--array_bed_file',
                                   help="A plink .bed file of genetic data. This file should have been created by "
