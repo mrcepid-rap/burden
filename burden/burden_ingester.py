@@ -26,7 +26,7 @@ class BurdenIngestData(IngestData):
             bgen_dict = self._ingest_bgen(parsed_options.bgen_index)
             dosage_dict = None
         elif parsed_options.dosage_index:
-            if parsed_options.tool is "bolt":
+            if parsed_options.tool == "bolt":
                 bgen_dict = None
                 dosage_dict = self._ingest_dosage(parsed_options.dosage_index)
             else:
