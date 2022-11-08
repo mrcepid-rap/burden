@@ -169,9 +169,9 @@ class BOLTRunner(ToolRunner):
                         fam_file = chrom_data[1]
 
             dosage_files = [f'--dosageFile={file}' for file in dosage_files]
-            cmd = f'{" ".join(dosage_files)}' \
-                  f'--dosageFidIidFile={fam_file} ' \
-                  f'--statsFileDosageSnps=/test/{self._output_prefix}.dosage.stats.gz'
+            cmd += f'{" ".join(dosage_files)} ' \
+                   f'--dosageFidIidFile={fam_file} ' \
+                   f'--statsFileDosageSnps=/test/{self._output_prefix}.dosage.stats.gz'
 
         else:
             cmd += f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
