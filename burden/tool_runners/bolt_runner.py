@@ -159,7 +159,7 @@ class BOLTRunner(ToolRunner):
             # Dosage format takes everything on the command-line, cannot supply a file-list like bgen, but can take
             # multiple files as multiple inputs of the same option (--dosageFile). Only needs one Fid/Iid File (so
             # capture the first one we see regardless of which chromosome)
-            with Path('poss_chromosomes').open('r') as poss_file:
+            with Path('poss_chromosomes.txt').open('r') as poss_file:
                 dosage_files = []
                 fam_file = None
                 for file in poss_file:
