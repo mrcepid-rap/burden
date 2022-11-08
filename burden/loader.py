@@ -52,9 +52,13 @@ class LoadModule(ModuleLoader):
                                        "output for burden tests where tool = saige, regenie, or bolt.",
                                   dest='run_marker_tests', action='store_true')
         self._parser.add_argument('--bgen_index',
-                                  help="list of bgen files and associated index/annotation",
-                                  type=self.dxfile_input, dest='bgen_index', required=True,
-                                  metavar=example_dxfile)
+                                  help="list of bgen files and associated index/sample/annotation",
+                                  type=self.dxfile_input, dest='bgen_index', required=False,
+                                  metavar=example_dxfile, default='None')
+        self._parser.add_argument('--dosage_index',
+                                  help="list of dosage files and associated sample/annotation",
+                                  type=self.dxfile_input, dest='bgen_index', required=False,
+                                  metavar=example_dxfile, default='None')
         self._parser.add_argument('--array_bed_file',
                                   help="A plink .bed file of genetic data. This file should have been created by "
                                        "mrcepid-buildgrms",

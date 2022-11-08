@@ -1,5 +1,6 @@
-from os.path import exists
-from typing import List
+from pathlib import Path
+
+import pandas as pd
 
 from burden.tool_runners.tool_runner import ToolRunner
 from runassociationtesting.association_resources import *
@@ -20,24 +21,34 @@ class BOLTRunner(ToolRunner):
                                        incrementor=10,
                                        thread_factor=4)
 
+        # The 'poss_chromosomes.txt' has a slightly different format depending on the data-type being used, but
+        # generally has a format of <genetics file>\t<fam file>
         with open('poss_chromosomes.txt', 'w') as poss_chromosomes:
             for chromosome in get_chromosomes():
-                for tarball_prefix in self._association_pack.tarball_prefixes:
-                    if exists(tarball_prefix + "." + chromosome + ".BOLT.bgen"):
-                        poss_chromosomes.write(f'/test/{tarball_prefix}.{chromosome}.bgen '
-                                               f'/test/{tarball_prefix}.{chromosome}.sample\n')
-                        thread_utility.launch_job(class_type=self._process_bolt_file,
-                                                  tarball_prefix=tarball_prefix,
+                if self._association_pack.is_dosage:
+                    if chromosome in self._association_pack.dosage_dict:
+                        thread_utility.launch_job(class_type=self._process_bolt_dosage_file,
                                                   chromosome=chromosome)
+                        poss_chromosomes.write(f'/test/{chromosome}.INCLUDE.dosage '
+                                               f'/test/{chromosome}.INCLUDE.fam\n')
 
-                if self._association_pack.run_marker_tests:
-                    poss_chromosomes.write(f'/test/{chromosome}.markers.bgen '
-                                           f'/test/{chromosome}.markers.bolt.sample\n')
-                    # This makes use of a utility class from AssociationResources since bgen filtering/processing is
-                    # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
-                    thread_utility.launch_job(class_type=process_bgen_file,
-                                              chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
-                                              chromosome=chromosome)
+                else:
+                    for tarball_prefix in self._association_pack.tarball_prefixes:
+                        if Path(f'{tarball_prefix}.{chromosome}.BOLT.bgen').exists():
+                            poss_chromosomes.write(f'/test/{tarball_prefix}.{chromosome}.bgen '
+                                                   f'/test/{tarball_prefix}.{chromosome}.sample\n')
+                            thread_utility.launch_job(class_type=self._process_bolt_bgen_file,
+                                                      tarball_prefix=tarball_prefix,
+                                                      chromosome=chromosome)
+
+                    if self._association_pack.run_marker_tests:
+                        poss_chromosomes.write(f'/test/{chromosome}.markers.bgen '
+                                               f'/test/{chromosome}.markers.bolt.sample\n')
+                        # This makes use of a utility class from AssociationResources since bgen filtering/processing is
+                        # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
+                        thread_utility.launch_job(class_type=process_bgen_file,
+                                                  chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
+                                                  chromosome=chromosome)
 
             poss_chromosomes.close()
             thread_utility.collect_futures()
@@ -48,11 +59,57 @@ class BOLTRunner(ToolRunner):
 
         # 3. Process the outputs
         print("Processing BOLT outputs...")
-        self._outputs.extend(self._process_bolt_outputs())
+        if self._association_pack.is_dosage:
+            self._outputs.extend(f'{self._output_prefix}.dosage.stats.gz')
+        else:
+            self._outputs.extend(self._process_bolt_outputs())
+
+    def _process_bolt_dosage_file(self, chromosome: str) -> None:
+
+        current_file_pack = self._association_pack.dosage_dict[chromosome]
+
+        # Read the sample file:
+        dosage_sample_list = []
+        with current_file_pack['sample'].open('r') as sample_file:
+            for line in sample_file:
+                sample = line.rstrip().split('\t')
+                dosage_sample_list.append(sample[1])
+
+        # Read genotypes as a pandas DF, so we can easily drop columns
+        current_genotypes = pd.read_csv(current_file_pack['dosage'], sep="\t",
+                                        names=['rsID', 'chrom', 'pos', 'REF', 'ALT'] + dosage_sample_list,
+                                        dtype={'chrom': str})
+
+        # Then use the SAMPLES_Include.txt file to get the samples we want to keep:
+        valid_sample_list = set()
+        with Path('SAMPLES_Include.txt').open('r') as sample_file:
+            for line in sample_file:
+                sample = line.rstrip()
+                valid_sample_list.add(sample)
+
+        # ... and exclude all samples (drop_samples) that we DON'T find in the include file
+        drop_samples = []
+        for sample in dosage_sample_list:
+            if sample not in valid_sample_list:
+                drop_samples.append(sample)
+
+        # And finally write the new genotype and sample files:
+        with Path(f'{chromosome}.INCLUDE.dosage').open('w') as new_dosage,\
+                Path(f'{chromosome}.INCLUDE.fam').open('w') as new_fam:
+
+            current_genotypes = current_genotypes.drop(columns=drop_samples)
+            current_genotypes.to_csv(new_dosage, sep="\t", float_format='%0.4f', na_rep='-9', index=False, header=False)
+
+            sample_names = list(current_genotypes.columns)[5:]
+            for i in range(0, len(sample_names)):
+                new_fam.write(f'{sample_names[i]}\t{sample_names[i]}\n')
+
+            new_dosage.close()
+            new_fam.close()
 
     # This handles processing of mask and whole-exome bgen files for input into BOLT
     @staticmethod
-    def _process_bolt_file(tarball_prefix: str, chromosome: str) -> None:
+    def _process_bolt_bgen_file(tarball_prefix: str, chromosome: str) -> None:
 
         # Do the mask first...
         # We need to modify the bgen file to have an alternate name for IDing masks
@@ -79,25 +136,46 @@ class BOLTRunner(ToolRunner):
     def _run_bolt(self) -> None:
 
         # See the README.md for more information on these parameters
-        cmd = 'bolt ' + \
-                '--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
-                '--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
-                '--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
+        cmd = f'bolt ' + \
+                f'--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
+                f'--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
+                f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
                 f'--phenoCol={self._association_pack.pheno_names[0]} ' \
-                '--covarFile=/test/phenotypes_covariates.formatted.txt ' \
-                '--covarCol=sex ' \
-                '--covarCol=wes_batch ' \
-                '--qCovarCol=age ' \
-                '--qCovarCol=age_squared ' \
-                '--qCovarCol=PC{1:10} ' \
-                '--covarMaxLevels=110 ' \
-                '--LDscoresFile=BOLT-LMM_v2.4/tables/LDSCORE.1000G_EUR.tab.gz ' \
-                '--geneticMapFile=BOLT-LMM_v2.4/tables/genetic_map_hg19_withX.txt.gz ' \
+                f'--covarFile=/test/phenotypes_covariates.formatted.txt ' \
+                f'--covarCol=sex ' \
+                f'--covarCol=wes_batch ' \
+                f'--qCovarCol=age ' \
+                f'--qCovarCol=age_squared ' \
+                f'--qCovarCol=PC{{1:10}} ' \
+                f'--covarMaxLevels=110 ' \
+                f'--LDscoresFile=BOLT-LMM_v2.4/tables/LDSCORE.1000G_EUR.tab.gz ' \
+                f'--geneticMapFile=BOLT-LMM_v2.4/tables/genetic_map_hg19_withX.txt.gz ' \
                 f'--numThreads={self._association_pack.threads} ' \
                 f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
-                '--verboseStats ' \
-                '--bgenSampleFileList=/test/poss_chromosomes.txt ' \
-                f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz'
+                f'--verboseStats '
+
+        # I/O for 'imputed' data depends on input format (dosage/bgen), decide that here
+        if self._association_pack.is_dosage:
+            # Dosage format takes everything on the command-line, cannot supply a file-list like bgen, but can take
+            # multiple files as multiple inputs of the same option (--dosageFile). Only needs one Fid/Iid File (so
+            # capture the first one we see regardless of which chromosome)
+            with Path('poss_chromosomes').open('r') as poss_file:
+                dosage_files = []
+                fam_file = None
+                for file in poss_file:
+                    chrom_data = file.rstrip().split(' ')
+                    dosage_files.append(chrom_data[0])
+                    if fam_file is None:
+                        fam_file = chrom_data[1]
+
+            dosage_files = [f'--dosageFile={file}' for file in dosage_files]
+            cmd = f'{" ".join(dosage_files)}' \
+                  f'--dosageFidIidFile={fam_file} ' \
+                  f'--statsFileDosageSnps=/test/{self._output_prefix}.dosage.stats.gz'
+
+        else:
+            cmd += f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
+                   f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz'
 
         if self._association_pack.is_bolt_non_infinite:
             cmd += ' --lmmForceNonInf'

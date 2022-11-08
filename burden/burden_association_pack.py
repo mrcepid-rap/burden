@@ -13,6 +13,7 @@ class BurdenProgramArgs(ProgramArgs):
     tool: str
     run_marker_tests: bool
     bgen_index: dxpy.DXFile
+    dosage_index: dxpy.DXFile
     array_bed_file: dxpy.DXFile
     array_fam_file: dxpy.DXFile
     array_bim_file: dxpy.DXFile
@@ -31,11 +32,17 @@ class BGENInformation(TypedDict):
     vep: str
 
 
+class DosageInformation(TypedDict):
+    dosage: Path
+    sample: Path
+    info: Path
+
+
 class BurdenAssociationPack(AssociationPack):
 
     def __init__(self, association_pack: AssociationPack, tarball_prefixes: List[str],
-                 bgen_dict: Dict[str, BGENInformation], run_marker_tests: bool, is_bolt_non_infinite: bool,
-                 regenie_snps_file: Optional[Path]):
+                 bgen_dict: Dict[str, BGENInformation], dosage_dict: Dict[str, DosageInformation],
+                 run_marker_tests: bool, is_bolt_non_infinite: bool, regenie_snps_file: Optional[Path]):
 
         super().__init__(association_pack.pheno_files, association_pack.inclusion_found,
                          association_pack.exclusion_found, association_pack.additional_covariates_found,
@@ -45,6 +52,8 @@ class BurdenAssociationPack(AssociationPack):
 
         self.tarball_prefixes = tarball_prefixes
         self.bgen_dict = bgen_dict
+        self.dosage_dict = dosage_dict
         self.run_marker_tests = run_marker_tests
         self.is_bolt_non_infinite = is_bolt_non_infinite
         self.regenie_snps_file = regenie_snps_file
+        self.is_dosage = bgen_dict is None
