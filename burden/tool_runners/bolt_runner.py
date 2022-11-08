@@ -60,7 +60,7 @@ class BOLTRunner(ToolRunner):
         # 3. Process the outputs
         print("Processing BOLT outputs...")
         if self._association_pack.is_dosage:
-            self._outputs.extend(f'{self._output_prefix}.dosage.stats.gz')
+            self._outputs.append(f'{self._output_prefix}.dosage.stats.gz')
         else:
             self._outputs.extend(self._process_bolt_outputs())
 
