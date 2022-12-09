@@ -1,10 +1,8 @@
 from pathlib import Path
 
-import pandas as pd
-
 from burden.tool_runners.tool_runner import ToolRunner
-from runassociationtesting.association_resources import *
-from runassociationtesting.thread_utility import ThreadUtility
+from general_utilities.association_resources import *
+from general_utilities.thread_utility.thread_utility import *
 
 
 class BOLTRunner(ToolRunner):

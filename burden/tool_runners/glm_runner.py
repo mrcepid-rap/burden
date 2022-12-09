@@ -1,9 +1,9 @@
-from runassociationtesting.association_resources import *
-from runassociationtesting.linear_model.linear_model import LinearModelResult
-from runassociationtesting.linear_model.proccess_model_output import process_linear_model_outputs
 from burden.tool_runners.tool_runner import ToolRunner
-from runassociationtesting.linear_model import linear_model
-from runassociationtesting.thread_utility import ThreadUtility
+from general_utilities.association_resources import *
+from general_utilities.linear_model import linear_model
+from general_utilities.linear_model.linear_model import LinearModelResult
+from general_utilities.linear_model.proccess_model_output import process_linear_model_outputs
+from general_utilities.thread_utility.thread_utility import *
 
 
 class GLMRunner(ToolRunner):
@@ -14,7 +14,10 @@ class GLMRunner(ToolRunner):
         # This will load all variants, genes, and phenotypes into memory to allow for parallelization
         # This function returns a class of type LinearModelPack containing info for running GLMs
         print("Loading data and running null Linear Model")
-        null_model = linear_model.linear_model_null(self._association_pack.pheno_names[0], self._association_pack)
+        null_model = linear_model.linear_model_null(self._association_pack.pheno_names[0],
+                                                    self._association_pack.is_binary,
+                                                    self._association_pack.found_quantitative_covariates,
+                                                    self._association_pack.found_categorical_covariates)
 
         # 2. Load the tarballs INTO separate genotypes dictionaries
         print("Loading Linear Model genotypes")

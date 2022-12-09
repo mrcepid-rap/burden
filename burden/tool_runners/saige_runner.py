@@ -1,7 +1,7 @@
 from os.path import exists
-from runassociationtesting.association_resources import *
 from burden.tool_runners.tool_runner import ToolRunner
-from runassociationtesting.thread_utility import ThreadUtility
+from general_utilities.association_resources import *
+from general_utilities.thread_utility.thread_utility import *
 
 
 class SAIGERunner(ToolRunner):
