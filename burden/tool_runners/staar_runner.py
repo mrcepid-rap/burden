@@ -1,10 +1,10 @@
 from os.path import exists
 
-from runassociationtesting.association_resources import *
 from burden.tool_runners.tool_runner import ToolRunner
-from runassociationtesting.linear_model.proccess_model_output import process_staar_outputs
-from runassociationtesting.linear_model.staar_model import *
-from runassociationtesting.thread_utility import ThreadUtility
+from general_utilities.association_resources import *
+from general_utilities.linear_model.proccess_model_output import process_staar_outputs
+from general_utilities.linear_model.staar_model import staar_null, staar_genes
+from general_utilities.thread_utility.thread_utility import *
 
 
 class STAARRunner(ToolRunner):

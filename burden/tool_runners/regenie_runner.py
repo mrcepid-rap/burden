@@ -1,10 +1,9 @@
 import re
 from os.path import exists
-from pathlib import Path
 
-from runassociationtesting.association_resources import *
 from burden.tool_runners.tool_runner import ToolRunner
-from runassociationtesting.thread_utility import *
+from general_utilities.association_resources import *
+from general_utilities.thread_utility.thread_utility import *
 
 
 class REGENIERunner(ToolRunner):
