@@ -192,7 +192,7 @@ class BOLTRunner(ToolRunner):
     def _process_bolt_outputs(self) -> List[str]:
 
         # First read in the BOLT stats file:
-        bolt_table = pd.read_csv(gzip.open(self._output_prefix + '.bgen.stats.gz', 'rt'), sep="\t")
+        bolt_table = pd.read_csv(f'{self._output_prefix}.bgen.stats.gz', sep="\t")
 
         # Split the main table into marker and gene tables and remove the larger table
         bolt_table_gene = bolt_table[bolt_table['SNP'].str.contains('ENST')]
@@ -246,7 +246,7 @@ class BOLTRunner(ToolRunner):
             variant_index = []
             # Open all chromosome indicies and load them into a list and append them together
             for chromosome in get_chromosomes():
-                variant_index.append(pd.read_csv(gzip.open(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz', 'rt'),
+                variant_index.append(pd.read_csv(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz',
                                                  sep="\t",
                                                  dtype={'SIFT': str, 'POLYPHEN': str}))
 
