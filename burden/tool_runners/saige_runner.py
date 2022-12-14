@@ -240,7 +240,7 @@ class SAIGERunner(ToolRunner):
             saige_table_marker = []
             # Open all chromosome indicies and load them into a list and append them together
             for chromosome in completed_marker_chromosomes:
-                variant_index.append(pd.read_csv(gzip.open(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz', 'rt'),
+                variant_index.append(pd.read_csv(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz',
                                                  sep="\t",
                                                  dtype={'SIFT': str, 'POLYPHEN': str}))
                 saige_table_marker.append(pd.read_csv(chromosome + ".SAIGE_OUT.SAIGE.markers.txt", sep="\t"))

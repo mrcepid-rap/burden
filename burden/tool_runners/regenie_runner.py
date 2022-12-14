@@ -310,7 +310,7 @@ class REGENIERunner(ToolRunner):
             # Sort just in case
             regenie_table = regenie_table.sort_values(by=['chrom', 'start', 'end'])
 
-            regenie_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
+            regenie_table.to_csv(path_or_buf=gene_out, index=True, sep="\t", na_rep='NA')
             gene_out.close()
 
             # And bgzip and tabix...
@@ -331,7 +331,7 @@ class REGENIERunner(ToolRunner):
             # Open all chromosome indicies and load them into a list and append them together
             for chromosome in completed_marker_chromosomes:
                 variant_index.append(
-                    pd.read_csv(gzip.open("filtered_bgen/" + chromosome + ".filtered.vep.tsv.gz", 'rt'),
+                    pd.read_csv(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz',
                                 sep="\t",
                                 dtype={'SIFT': str, 'POLYPHEN': str}))
                 regenie_table_marker.append(
