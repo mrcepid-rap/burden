@@ -307,10 +307,13 @@ class REGENIERunner(ToolRunner):
         regenie_table = pd.merge(transcripts_table, regenie_table, left_index=True, right_index=True, how="left")
         with open(self._output_prefix + '.genes.REGENIE.stats.tsv', 'w') as gene_out:
 
+            # Reset the index and make sure chrom/start/end are first (for indexing)
+            regenie_table.reset_index(inplace=True)
+
             # Sort just in case
             regenie_table = regenie_table.sort_values(by=['chrom', 'start', 'end'])
 
-            regenie_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
+            regenie_table.to_csv(path_or_buf=gene_out, index=True, sep="\t", na_rep='NA')
             gene_out.close()
 
             # And bgzip and tabix...
