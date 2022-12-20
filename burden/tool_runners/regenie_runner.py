@@ -313,7 +313,7 @@ class REGENIERunner(ToolRunner):
             # Sort just in case
             regenie_table = regenie_table.sort_values(by=['chrom', 'start', 'end'])
 
-            regenie_table.to_csv(path_or_buf=gene_out, index=True, sep="\t", na_rep='NA')
+            regenie_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
             gene_out.close()
 
             # And bgzip and tabix...
