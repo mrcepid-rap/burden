@@ -112,7 +112,7 @@ class SAIGERunner(ToolRunner):
             cmd = cmd + '--qCovarColList=wes_batch '
         cmd = cmd + '--covarColList=' + ','.join(all_covariates)
 
-        run_cmd(cmd, True, self._output_prefix + ".SAIGE_step1.log", print_cmd=True)
+        run_cmd(cmd, is_docker=True, stdout_file=self._output_prefix + ".SAIGE_step1.log", print_cmd=True)
 
     # This exists for a very stupid reason – they _heavily_ modified the groupFile for v1.0 and I haven't gone back
     # to change how this file is made in 'collapse variants'
@@ -145,9 +145,9 @@ class SAIGERunner(ToolRunner):
         cmd = f'bcftools view --threads 1 -S /test/SAMPLES_Include.txt -Ob ' \
               f'-o /test/{tarball_prefix}.{chromosome}.saige_input.bcf ' \
               f'/test/{tarball_prefix}.{chromosome}.SAIGE.bcf'
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True)
         cmd = f'bcftools index --threads 1 /test/{tarball_prefix}.{chromosome}.saige_input.bcf'
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True)
         
         # See the README.md for more information on these parameters
         cmd = 'step2_SPAtests.R ' \
@@ -168,7 +168,7 @@ class SAIGERunner(ToolRunner):
         if self._association_pack.is_binary:
             cmd = cmd + '--is_Firth_beta=TRUE'
 
-        run_cmd(cmd, True, tarball_prefix + "." + chromosome + ".SAIGE_step2.log")
+        run_cmd(cmd, is_docker=True, stdout_file=tarball_prefix + "." + chromosome + ".SAIGE_step2.log")
 
         return tarball_prefix, chromosome
 
@@ -189,7 +189,7 @@ class SAIGERunner(ToolRunner):
               '--maxMissing=1 '
         if self._association_pack.is_binary:
             cmd = cmd + '--is_Firth_beta=TRUE'
-        run_cmd(cmd, True, chromosome + ".SAIGE_markers.log")
+        run_cmd(cmd, is_docker=True, stdout_file=chromosome + ".SAIGE_markers.log")
 
         return chromosome
 
@@ -225,9 +225,9 @@ class SAIGERunner(ToolRunner):
 
             # And bgzip and tabix...
             cmd = "bgzip /test/" + self._output_prefix + '.genes.SAIGE.stats.tsv'
-            run_cmd(cmd, True)
+            run_cmd(cmd, is_docker=True)
             cmd = "tabix -S 1 -s 2 -b 3 -e 4 /test/" + self._output_prefix + '.genes.SAIGE.stats.tsv.gz'
-            run_cmd(cmd, True)
+            run_cmd(cmd, is_docker=True)
 
         outputs = [self._output_prefix + '.SAIGE_step1.log',
                    self._output_prefix + '.SAIGE_step2.log',
@@ -265,9 +265,9 @@ class SAIGERunner(ToolRunner):
 
                 # And bgzip and tabix...
                 cmd = "bgzip /test/" + self._output_prefix + '.markers.SAIGE.stats.tsv'
-                run_cmd(cmd, True)
+                run_cmd(cmd, is_docker=True)
                 cmd = "tabix -S 1 -s 2 -b 3 -e 3 /test/" + self._output_prefix + '.markers.SAIGE.stats.tsv.gz'
-                run_cmd(cmd, True)
+                run_cmd(cmd, is_docker=True)
 
             outputs.append([self._output_prefix + '.markers.SAIGE.stats.tsv.gz',
                             self._output_prefix + '.markers.SAIGE.stats.tsv.gz.tbi',

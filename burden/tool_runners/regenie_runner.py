@@ -231,7 +231,7 @@ class REGENIERunner(ToolRunner):
                                        self._association_pack.found_categorical_covariates,
                                        self._association_pack.is_binary)
 
-        run_cmd(cmd, True, chromosome + ".REGENIE_markers.log")
+        run_cmd(cmd, is_docker=True, stdout_file=chromosome + ".REGENIE_markers.log")
 
         return tarball_prefix, chromosome
 
@@ -253,7 +253,7 @@ class REGENIERunner(ToolRunner):
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
                                        self._association_pack.is_binary)
-        run_cmd(cmd, True, chromosome + ".REGENIE_markers.log")
+        run_cmd(cmd, is_docker=True, stdout_file=chromosome + ".REGENIE_markers.log")
 
         return chromosome
 
@@ -318,9 +318,9 @@ class REGENIERunner(ToolRunner):
 
             # And bgzip and tabix...
             cmd = f'bgzip /test/{self._output_prefix}.genes.REGENIE.stats.tsv'
-            run_cmd(cmd, True)
+            run_cmd(cmd, is_docker=True)
             cmd = f'tabix -S 1 -s 2 -b 3 -e 4 /test/{self._output_prefix}.genes.REGENIE.stats.tsv.gz'
-            run_cmd(cmd, True)
+            run_cmd(cmd, is_docker=True)
 
         outputs = [self._output_prefix + '.REGENIE_step1.log',
                    self._output_prefix + '.REGENIE_step2.log',
@@ -362,9 +362,9 @@ class REGENIERunner(ToolRunner):
 
                 # And bgzip and tabix...
                 cmd = "bgzip /test/" + self._output_prefix + '.markers.REGENIE.stats.tsv'
-                run_cmd(cmd, True)
+                run_cmd(cmd, is_docker=True)
                 cmd = "tabix -S 1 -s 2 -b 3 -e 3 /test/" + self._output_prefix + '.markers.REGENIE.stats.tsv.gz'
-                run_cmd(cmd, True)
+                run_cmd(cmd, is_docker=True)
 
             outputs.extend([self._output_prefix + '.markers.REGENIE.stats.tsv.gz',
                             self._output_prefix + '.markers.REGENIE.stats.tsv.gz.tbi',
