@@ -114,7 +114,7 @@ class BOLTRunner(ToolRunner):
         cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-last\' ' \
                     f'--out /test/{tarball_prefix}.{chromosome} ' \
                     f'--make-just-pvar'
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True)
 
         with open(f'{tarball_prefix}.{chromosome}.fixer', 'w') as fix_writer:
             pvar_reader = csv.DictReader(open(f'{tarball_prefix}.{chromosome}.pvar', 'r'), delimiter='\t')
@@ -128,7 +128,7 @@ class BOLTRunner(ToolRunner):
               f'--export bgen-1.2 \'bits=\'8 ' \
               f'--out /test/{tarball_prefix}.{chromosome} ' \
               f'--keep-fam /test/SAMPLES_Include.txt'
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True)
 
     # Run rare variant association testing using BOLT
     def _run_bolt(self) -> None:
@@ -186,7 +186,7 @@ class BOLTRunner(ToolRunner):
         if len(self._association_pack.found_categorical_covariates) > 0:
             for covar in self._association_pack.found_categorical_covariates:
                 cmd += f' --covarCol={covar} '
-        run_cmd(cmd, True, self._output_prefix + '.BOLT.log')
+        run_cmd(cmd, is_docker=True, stdout_file=self._output_prefix + '.BOLT.log')
 
     # This parses the BOLT output file into a useable format for plotting/R
     def _process_bolt_outputs(self) -> List[str]:
@@ -231,9 +231,9 @@ class BOLTRunner(ToolRunner):
 
             # And bgzip and tabix...
             cmd = "bgzip /test/" + self._output_prefix + '.genes.BOLT.stats.tsv'
-            run_cmd(cmd, True)
+            run_cmd(cmd, is_docker=True)
             cmd = "tabix -S 1 -s 2 -b 3 -e 4 /test/" + self._output_prefix + '.genes.BOLT.stats.tsv.gz'
-            run_cmd(cmd, True)
+            run_cmd(cmd, is_docker=True)
 
         outputs = [self._output_prefix + '.stats.gz',
                    self._output_prefix + '.genes.BOLT.stats.tsv.gz',
@@ -268,9 +268,9 @@ class BOLTRunner(ToolRunner):
 
                 # And bgzip and tabix...
                 cmd = "bgzip /test/" + self._output_prefix + '.markers.BOLT.stats.tsv'
-                run_cmd(cmd, True)
+                run_cmd(cmd, is_docker=True)
                 cmd = "tabix -S 1 -s 2 -b 3 -e 3 /test/" + self._output_prefix + '.markers.BOLT.stats.tsv.gz'
-                run_cmd(cmd, True)
+                run_cmd(cmd, is_docker=True)
 
             outputs.extend([self._output_prefix + '.markers.BOLT.stats.tsv.gz',
                             self._output_prefix + '.markers.BOLT.stats.tsv.gz.tbi'])
