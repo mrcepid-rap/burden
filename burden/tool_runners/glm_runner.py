@@ -32,9 +32,8 @@ class GLMRunner(ToolRunner):
                                       is_snp_tar=False,
                                       is_gene_tar=False)
 
-        future_results = thread_utility.collect_futures()
         genotype_packs = {}
-        for result in future_results:
+        for result in thread_utility:
             tarball_prefix, genotype_dict = result
             genotype_packs[tarball_prefix] = genotype_dict
 
@@ -68,8 +67,7 @@ class GLMRunner(ToolRunner):
                                          extrasaction='ignore')
 
         lm_stats_writer.writeheader()
-        future_results = thread_utility.collect_futures()
-        for result in future_results:
+        for result in thread_utility:
             finished_gene: LinearModelResult = result
             lm_stats_writer.writerow(finished_gene.todict())
         lm_stats_file.close()

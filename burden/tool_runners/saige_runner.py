@@ -26,13 +26,12 @@ class SAIGERunner(ToolRunner):
                     thread_utility.launch_job(class_type=self._saige_step_two,
                                               tarball_prefix=tarball_prefix,
                                               chromosome=chromosome)
-        future_results = thread_utility.collect_futures()
 
         # 3. Gather preliminary results
         print("Gathering SAIGE mask-based results...")
         completed_gene_tables = []
         log_file = open(self._output_prefix + '.SAIGE_step2.log', 'w')
-        for result in future_results:
+        for result in thread_utility:
             tarball_prefix, finished_chromosome = result
             completed_gene_tables.append(self._process_saige_output(tarball_prefix, finished_chromosome))
             log_file.write(f'{tarball_prefix + "-" + finished_chromosome:{"-"}^{50}}')
@@ -56,9 +55,8 @@ class SAIGERunner(ToolRunner):
                                           chromosome=chromosome)
                 completed_marker_chromosomes.append(chromosome)
 
-            future_results = thread_utility.collect_futures()
             markers_log_file = open(self._output_prefix + '.SAIGE_markers.log', 'w')
-            for result in future_results:
+            for result in thread_utility:
                 finished_chromosome = result
                 markers_log_file.write(f'{finished_chromosome + ".log":{"-"}^{50}}')
                 with open(finished_chromosome + ".SAIGE_markers.log", 'r') as current_log:

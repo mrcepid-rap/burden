@@ -58,13 +58,12 @@ class REGENIERunner(ToolRunner):
                     thread_utility.launch_job(self._run_regenie_step_two,
                                               tarball_prefix=tarball_prefix,
                                               chromosome=chromosome)
-        future_results = thread_utility.collect_futures()
 
         # Gather preliminary results from step 2:
         print("Gathering REGENIE mask-based results...")
         completed_gene_tables = []
         log_file = open(self._output_prefix + '.REGENIE_step2.log', 'w')
-        for result in future_results:
+        for result in thread_utility:
             tarball_prefix, finished_chromosome = result
             completed_gene_tables.append(self._process_regenie_output(tarball_prefix,
                                                                       finished_chromosome))
@@ -87,10 +86,9 @@ class REGENIERunner(ToolRunner):
                 thread_utility.launch_job(class_type=self._regenie_marker_run,
                                           chromosome=chromosome)
                 completed_marker_chromosomes.append(chromosome)
-            future_results = thread_utility.collect_futures()
 
             markers_log_file = open(self._output_prefix + '.REGENIE_markers.log', 'w')
-            for result in future_results:
+            for result in thread_utility:
                 finished_chromosome = result
                 markers_log_file.write(
                     "{s:{c}^{n}}\n".format(s=finished_chromosome + '.log', n=50, c='-'))

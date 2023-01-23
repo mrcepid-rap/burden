@@ -35,13 +35,11 @@ class STAARRunner(ToolRunner):
                                                   phenoname=phenoname,
                                                   has_gene_info=False)
 
-        future_results = thread_utility.collect_futures()
-
         # 3. Print a preliminary STAAR output
         print("Finalising STAAR outputs...")
         completed_staar_files = []
         # And gather the resulting futures
-        for result in future_results:
+        for result in thread_utility:
             tarball_prefix, finished_chromosome, phenoname = result
             completed_staar_files.append(f'{tarball_prefix}.{phenoname}.{finished_chromosome}.STAAR_results.tsv')
 
