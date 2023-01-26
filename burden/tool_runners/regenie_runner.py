@@ -178,7 +178,9 @@ class REGENIERunner(ToolRunner):
             if self._association_pack.regenie_snps_file is not None:
                 cmd += f' --extract /test/genetics/{self._association_pack.regenie_snps_file.name}'
 
-            run_cmd(cmd, True, stdout_file='plink_out.txt')
+            run_cmd(cmd, is_docker=True,
+                    docker_image='egardner413/mrcepid-burdentesting',
+                    stdout_file='plink_out.txt')
             with open('plink_out.txt', 'r') as plink_out:
                 for line in plink_out:
                     found_snp_count = re.search('(\\d+) variants remaining after main filters', line)
@@ -201,7 +203,9 @@ class REGENIERunner(ToolRunner):
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
                                        self._association_pack.is_binary)
-        run_cmd(cmd, True, stdout_file=self._output_prefix + ".REGENIE_step1.log")
+        run_cmd(cmd, is_docker=True,
+                docker_image='egardner413/mrcepid-burdentesting',
+                stdout_file=f'{self._output_prefix}.REGENIE_step1.log')
 
     def _run_regenie_step_two(self, tarball_prefix: str, chromosome: str) -> tuple:
 
@@ -229,7 +233,9 @@ class REGENIERunner(ToolRunner):
                                        self._association_pack.found_categorical_covariates,
                                        self._association_pack.is_binary)
 
-        run_cmd(cmd, is_docker=True, stdout_file=chromosome + ".REGENIE_markers.log")
+        run_cmd(cmd, is_docker=True,
+                docker_image='egardner413/mrcepid-burdentesting',
+                stdout_file=f'{chromosome}.REGENIE_markers.log')
 
         return tarball_prefix, chromosome
 
@@ -251,7 +257,9 @@ class REGENIERunner(ToolRunner):
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
                                        self._association_pack.is_binary)
-        run_cmd(cmd, is_docker=True, stdout_file=chromosome + ".REGENIE_markers.log")
+        run_cmd(cmd, is_docker=True,
+                docker_image='egardner413/mrcepid-burdentesting',
+                stdout_file=f'{chromosome}.REGENIE_markers.log')
 
         return chromosome
 
@@ -316,9 +324,9 @@ class REGENIERunner(ToolRunner):
 
             # And bgzip and tabix...
             cmd = f'bgzip /test/{self._output_prefix}.genes.REGENIE.stats.tsv'
-            run_cmd(cmd, is_docker=True)
+            run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
             cmd = f'tabix -S 1 -s 2 -b 3 -e 4 /test/{self._output_prefix}.genes.REGENIE.stats.tsv.gz'
-            run_cmd(cmd, is_docker=True)
+            run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
         outputs = [self._output_prefix + '.REGENIE_step1.log',
                    self._output_prefix + '.REGENIE_step2.log',
@@ -360,9 +368,9 @@ class REGENIERunner(ToolRunner):
 
                 # And bgzip and tabix...
                 cmd = "bgzip /test/" + self._output_prefix + '.markers.REGENIE.stats.tsv'
-                run_cmd(cmd, is_docker=True)
+                run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
                 cmd = "tabix -S 1 -s 2 -b 3 -e 3 /test/" + self._output_prefix + '.markers.REGENIE.stats.tsv.gz'
-                run_cmd(cmd, is_docker=True)
+                run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
             outputs.extend([self._output_prefix + '.markers.REGENIE.stats.tsv.gz',
                             self._output_prefix + '.markers.REGENIE.stats.tsv.gz.tbi',
