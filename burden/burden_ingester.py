@@ -185,7 +185,7 @@ class BurdenIngestData(IngestData):
         cmd = "plink2 " \
               "--bfile /test/genetics/UKBB_470K_Autosomes_QCd --make-bed --keep-fam /test/SAMPLES_Include.txt " \
               "--out /test/genetics/UKBB_470K_Autosomes_QCd_WBA"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
         # I have to do this to recover the sample information from plink
         cmd = "docker run -v /home/dnanexus/:/test/ egardner413/mrcepid-associationtesting plink2 " \
