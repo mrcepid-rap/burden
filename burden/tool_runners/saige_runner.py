@@ -1,7 +1,7 @@
 from os.path import exists
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.association_resources import *
-from general_utilities.thread_utility.thread_utility import *
+from general_utilities.job_management.thread_utility import *
 
 
 class SAIGERunner(ToolRunner):

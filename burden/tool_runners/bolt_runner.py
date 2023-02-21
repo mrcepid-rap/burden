@@ -1,8 +1,6 @@
-from pathlib import Path
-
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.association_resources import *
-from general_utilities.thread_utility.thread_utility import *
+from general_utilities.job_management.thread_utility import *
 
 
 class BOLTRunner(ToolRunner):
@@ -80,6 +78,7 @@ class BOLTRunner(ToolRunner):
     def _run_bolt(self) -> None:
 
         # See the README.md for more information on these parameters
+        # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
         cmd = f'bolt ' + \
                 f'--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
                 f'--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
