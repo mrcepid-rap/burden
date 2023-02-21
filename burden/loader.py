@@ -97,7 +97,7 @@ class LoadModule(ModuleLoader):
                                   default='None')
 
     def _parse_options(self) -> BurdenProgramArgs:
-        return BurdenProgramArgs(**vars(self._parser.parse_args(self._input_args.split())))
+        return BurdenProgramArgs(**vars(self._parser.parse_args(self._split_options(self._input_args))))
 
     def _ingest_data(self, parsed_options: BurdenProgramArgs) -> BurdenAssociationPack:
         ingested_data = burden_ingester.BurdenIngestData(parsed_options)

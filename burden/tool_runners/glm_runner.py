@@ -3,7 +3,7 @@ from general_utilities.association_resources import *
 from general_utilities.linear_model import linear_model
 from general_utilities.linear_model.linear_model import LinearModelResult
 from general_utilities.linear_model.proccess_model_output import process_linear_model_outputs
-from general_utilities.thread_utility.thread_utility import *
+from general_utilities.job_management.thread_utility import *
 
 
 class GLMRunner(ToolRunner):
