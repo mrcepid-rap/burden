@@ -315,6 +315,12 @@ class REGENIERunner(ToolRunner):
 
             # Reset the index and make sure chrom/start/end are first (for indexing)
             regenie_table.reset_index(inplace=True)
+            columns = regenie_table.columns.tolist()
+            # ENST should ALWAYS be in position 0, but move it to position 4 and slice the array so we don't have two
+            # copies:
+            columns.insert(4, 'ENST')
+            columns = columns[1:]
+            regenie_table = regenie_table[columns]
 
             # Sort just in case
             regenie_table = regenie_table.sort_values(by=['chrom', 'start', 'end'])
