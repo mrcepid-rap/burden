@@ -29,14 +29,14 @@ class BOLTRunner(ToolRunner):
                                                   tarball_prefix=tarball_prefix,
                                                   chromosome=chromosome)
 
-                    if self._association_pack.run_marker_tests:
-                        poss_chromosomes.write(f'/test/{chromosome}.markers.bgen '
-                                               f'/test/{chromosome}.markers.bolt.sample\n')
-                        # This makes use of a utility class from AssociationResources since bgen filtering/processing is
-                        # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
-                        thread_utility.launch_job(class_type=process_bgen_file,
-                                                  chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
-                                                  chromosome=chromosome)
+                if self._association_pack.run_marker_tests:
+                    poss_chromosomes.write(f'/test/{chromosome}.markers.bgen '
+                                           f'/test/{chromosome}.markers.bolt.sample\n')
+                    # This makes use of a utility class from AssociationResources since bgen filtering/processing is
+                    # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
+                    thread_utility.launch_job(class_type=process_bgen_file,
+                                              chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
+                                              chromosome=chromosome)
 
             poss_chromosomes.close()
             thread_utility.collect_futures()

@@ -6,6 +6,7 @@ from general_utilities.association_resources import *
 from general_utilities.job_management.thread_utility import *
 
 
+# TODO: Implement multi-phenotype testing for REGENIE
 class REGENIERunner(ToolRunner):
 
     def run_tool(self) -> None:
