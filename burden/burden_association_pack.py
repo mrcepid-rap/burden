@@ -30,11 +30,9 @@ class BurdenAssociationPack(AssociationPack):
                  bgen_dict: Dict[str, BGENInformation], run_marker_tests: bool, is_bolt_non_infinite: bool,
                  regenie_snps_file: Optional[Path]):
 
-        super().__init__(association_pack.pheno_files, association_pack.inclusion_found,
-                         association_pack.exclusion_found, association_pack.additional_covariates_found,
-                         association_pack.is_binary, association_pack.sex, association_pack.threads,
-                         association_pack.pheno_names,
-                         association_pack.found_quantitative_covariates, association_pack.found_categorical_covariates)
+        super().__init__(association_pack.is_binary, association_pack.sex, association_pack.threads,
+                         association_pack.pheno_names, association_pack.found_quantitative_covariates,
+                         association_pack.found_categorical_covariates)
 
         self.tarball_prefixes = tarball_prefixes
         self.bgen_dict = bgen_dict

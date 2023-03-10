@@ -51,8 +51,11 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v1.1.0
+  * Start of major effort to annotate code better and provide unit tests for functionality
+
 * v1.0.0
-  * Initial release. The functionality of this module was formally embedded in the primary RunAssociationTesting code
+  * Initial release. The functionality of this module was formally embedded in RunAssociationTesting
 
 ### Background
 

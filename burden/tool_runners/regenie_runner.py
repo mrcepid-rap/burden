@@ -1,9 +1,13 @@
 import re
+import csv
 from os.path import exists
 
+import pandas as pd
+
 from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.association_resources import *
-from general_utilities.job_management.thread_utility import *
+from general_utilities.job_management.thread_utility import ThreadUtility
+from general_utilities.association_resources import run_cmd, get_chromosomes, process_bgen_file, \
+    define_covariate_string, define_field_names_from_tarball_prefix, build_transcript_table
 
 
 # TODO: Implement multi-phenotype testing for REGENIE

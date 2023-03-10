@@ -1,11 +1,15 @@
+import csv
+import dxpy
 import tarfile
+import subprocess
 
-from os.path import exists
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple, List
+
+from general_utilities.association_resources import BGENInformation, run_cmd
 
 from burden.burden_association_pack import BurdenAssociationPack, BurdenProgramArgs
-from runassociationtesting.ingest_data import *
+from runassociationtesting.ingest_data import IngestData
 
 
 class BurdenIngestData(IngestData):
@@ -58,9 +62,9 @@ class BurdenIngestData(IngestData):
                 tarball_prefixes.append(tarball_prefix)
                 tar = tarfile.open(tarball_name, "r:gz")
                 tar.extractall()
-                if exists(tarball_prefix + ".SNP.BOLT.bgen"):
+                if Path(f'{tarball_prefix}.SNP.BOLT.bgen').exists():
                     is_snp_tar = True
-                elif exists(tarball_prefix + ".GENE.BOLT.bgen"):
+                elif Path(f'{tarball_prefix}.GENE.BOLT.bgen').exists():
                     is_gene_tar = True
             else:
                 raise dxpy.AppError(f'Provided association tarball ({association_tarballs.describe()["id"]}) '
@@ -68,7 +72,7 @@ class BurdenIngestData(IngestData):
         else:
             # Likely to be a list of tarballs, download and extract...
             dxpy.download_dxfile(association_tarballs, "tarball_list.txt")
-            with open("tarball_list.txt", "r") as tarball_reader:
+            with Path('tarball_list.txt').open('r') as tarball_reader:
                 for association_tarball in tarball_reader:
                     association_tarball = association_tarball.rstrip()
                     tarball = dxpy.DXFile(association_tarball)
@@ -81,11 +85,11 @@ class BurdenIngestData(IngestData):
                     tarball_prefixes.append(tarball_prefix)
                     tar = tarfile.open(tarball_name, "r:gz")
                     tar.extractall()
-                    if exists(tarball_prefix + ".SNP.BOLT.bgen"):
-                        raise dxpy.AppError(f'Cannot run masks from a SNP list ({association_tarballs.describe()["id"]}) '
+                    if Path(f'{tarball_prefix}.SNP.BOLT.bgen').exists():
+                        raise dxpy.AppError(f'SNP list ({association_tarballs.describe()["id"]}) cannot be used '
                                             f'when running tarballs as batch...')
-                    elif exists(tarball_prefix + ".GENE.BOLT.bgen"):
-                        raise dxpy.AppError(f'Cannot run masks from a GENE list ({association_tarballs.describe()["id"]}) '
+                    elif Path(f'{tarball_prefix}.GENE.BOLT.bgen').exists():
+                        raise dxpy.AppError(f'GENE list ({association_tarballs.describe()["id"]}) cannot be used '
                                             f'when running tarballs as batch...')
 
         return is_snp_tar, is_gene_tar, tarball_prefixes
@@ -97,7 +101,7 @@ class BurdenIngestData(IngestData):
         # Ingest the INDEX of bgen files:
         dxpy.download_dxfile(bgen_index.get_id(), "bgen_locs.tsv")
         # and load it into a dict:
-        os.mkdir("filtered_bgen/")  # For downloading later...
+        Path("filtered_bgen/").mkdir()  # For downloading later...
         bgen_index_csv = csv.DictReader(open("bgen_locs.tsv", "r"), delimiter="\t")
         bgen_dict = {}
         for line in bgen_index_csv:
@@ -112,7 +116,7 @@ class BurdenIngestData(IngestData):
                              low_mac_list: dxpy.DXFile,
                              sparse_grm: dxpy.DXFile, sparse_grm_sample: dxpy.DXFile) -> None:
         # Now grab all genetic data that I have in the folder /project_resources/genetics/
-        os.mkdir("genetics/")  # This is for legacy reasons to make sure all tests work...
+        Path("genetics/").mkdir()  # This is for legacy reasons to make sure all tests work...
         dxpy.download_dxfile(bed_file.get_id(), 'genetics/UKBB_470K_Autosomes_QCd.bed')
         dxpy.download_dxfile(bim_file.get_id(), 'genetics/UKBB_470K_Autosomes_QCd.bim')
         dxpy.download_dxfile(fam_file.get_id(), 'genetics/UKBB_470K_Autosomes_QCd.fam')

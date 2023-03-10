@@ -1,7 +1,11 @@
-from os.path import exists
+import pandas as pd
+
+from pathlib import Path
+
 from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.association_resources import *
-from general_utilities.job_management.thread_utility import *
+from general_utilities.association_resources import get_chromosomes, run_cmd, process_bgen_file,\
+    define_field_names_from_tarball_prefix, build_transcript_table
+from general_utilities.job_management.thread_utility import ThreadUtility
 
 
 class SAIGERunner(ToolRunner):
@@ -21,7 +25,7 @@ class SAIGERunner(ToolRunner):
         
         for chromosome in get_chromosomes():
             for tarball_prefix in self._association_pack.tarball_prefixes:
-                if exists(tarball_prefix + "." + chromosome + ".SAIGE.bcf"):
+                if Path(tarball_prefix + "." + chromosome + ".SAIGE.bcf").exists():
                     self._prep_group_file(tarball_prefix, chromosome)
                     thread_utility.launch_job(class_type=self._saige_step_two,
                                               tarball_prefix=tarball_prefix,
@@ -151,20 +155,20 @@ class SAIGERunner(ToolRunner):
         run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
         
         # See the README.md for more information on these parameters
-        cmd = 'step2_SPAtests.R ' \
+        cmd = f'step2_SPAtests.R ' \
               f'--vcfFile=/test/{tarball_prefix}.{chromosome}.saige_input.bcf ' \
-              '--vcfField=GT ' \
+              f'--vcfField=GT ' \
               f'--GMMATmodelFile=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda ' \
-              '--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
-              '--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
-              '--LOCO=FALSE ' \
+              f'--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
+              f'--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
+              f'--LOCO=FALSE ' \
               f'--SAIGEOutputFile=/test/{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt ' \
               f'--groupFile=/test/{tarball_prefix}.{chromosome}.SAIGE_v1.0.groupFile.txt ' \
-              '--is_output_moreDetails=TRUE ' \
-              '--maxMAF_in_groupTest=0.5 ' \
-              '--maxMissing=1 ' \
+              f'--is_output_moreDetails=TRUE ' \
+              f'--maxMAF_in_groupTest=0.5 ' \
+              f'--maxMissing=1 ' \
               f'--chrom={chromosome} ' \
-              '--annotation_in_groupTest=foo '
+              f'--annotation_in_groupTest=foo '
 
         if self._association_pack.is_binary:
             cmd = cmd + '--is_Firth_beta=TRUE'
@@ -198,7 +202,7 @@ class SAIGERunner(ToolRunner):
 
         return chromosome
 
-    def _process_saige_output(self, tarball_prefix: str, chromosome: str) -> pandas.DataFrame:
+    def _process_saige_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
 
         # Load the raw table
         saige_table = pd.read_csv(tarball_prefix + "." + chromosome + ".SAIGE_OUT.SAIGE.gene.txt", sep='\t')
