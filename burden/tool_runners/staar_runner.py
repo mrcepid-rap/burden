@@ -1,10 +1,10 @@
-from os.path import exists
+from pathlib import Path
 
 from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.association_resources import *
+from general_utilities.job_management.thread_utility import ThreadUtility
+from general_utilities.association_resources import get_chromosomes
 from general_utilities.linear_model.proccess_model_output import process_staar_outputs
 from general_utilities.linear_model.staar_model import staar_null, staar_genes
-from general_utilities.job_management.thread_utility import *
 
 
 class STAARRunner(ToolRunner):
@@ -28,7 +28,7 @@ class STAARRunner(ToolRunner):
         for phenoname in self._association_pack.pheno_names:
             for tarball_prefix in self._association_pack.tarball_prefixes:
                 for chromosome in get_chromosomes():
-                    if exists(tarball_prefix + "." + chromosome + ".STAAR.matrix.rds"):
+                    if Path(f'{tarball_prefix}.{chromosome}.STAAR.matrix.rds'):
                         thread_utility.launch_job(staar_genes,
                                                   tarball_prefix=tarball_prefix,
                                                   chromosome=chromosome,
