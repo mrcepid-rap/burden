@@ -11,7 +11,7 @@ from burden.tool_runners.saige_runner import SAIGERunner
 from burden.tool_runners.staar_runner import STAARRunner
 from burden.tool_runners.tool_runner import ToolRunner
 
-
+#TEST
 class LoadModule(ModuleLoader):
 
     def __init__(self, output_prefix: str, input_args: str):
