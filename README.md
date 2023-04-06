@@ -51,6 +51,9 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v1.1.1
+  * Minor changes to BOLT commands to facilitate BOLT upgrade to v2.4.1
+
 * v1.1.0
   * Start of major effort to annotate code better and provide unit tests for functionality
 

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='burden',
-    version='1.1.0',
+    version='1.1.1',
     packages=['burden', 'burden.tool_runners'],
     url='',
     license='',
