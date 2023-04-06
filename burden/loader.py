@@ -1,6 +1,7 @@
+import dxpy
+
 from typing import Type
 
-import dxpy
 from burden import burden_ingester
 from burden.burden_association_pack import BurdenProgramArgs, BurdenAssociationPack
 from runassociationtesting.module_loader import ModuleLoader
