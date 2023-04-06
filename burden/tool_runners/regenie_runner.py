@@ -218,7 +218,7 @@ class REGENIERunner(ToolRunner):
         cmd = f'regenie ' \
               f'--step 2 ' \
               f'--bgen /test/{chromosome}.markers.bgen ' \
-              f'--sample /test/{chromosome}.markers.bolt.sample ' \
+              f'--sample /test/{chromosome}.markers.sample ' \
               f'--covarFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
@@ -249,7 +249,7 @@ class REGENIERunner(ToolRunner):
         cmd = f'regenie ' \
               f'--step 2 ' \
               f'--bgen /test/{chromosome}.markers.bgen ' \
-              f'--sample /test/{chromosome}.markers.bolt.sample ' \
+              f'--sample /test/{chromosome}.markers.sample ' \
               f'--covarFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
