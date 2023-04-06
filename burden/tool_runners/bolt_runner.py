@@ -38,7 +38,7 @@ class BOLTRunner(ToolRunner):
 
                 if self._association_pack.run_marker_tests:
                     poss_chromosomes.write(f'/test/{chromosome}.markers.bgen '
-                                           f'/test/{chromosome}.markers.bolt.sample\n')
+                                           f'/test/{chromosome}.markers.sample\n')
                     # This makes use of a utility class from AssociationResources since bgen filtering/processing is
                     # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
                     thread_utility.launch_job(class_type=process_bgen_file,
@@ -98,8 +98,8 @@ class BOLTRunner(ToolRunner):
                 f'--qCovarCol=age_squared ' \
                 f'--qCovarCol=PC{{1:10}} ' \
                 f'--covarMaxLevels=110 ' \
-                f'--LDscoresFile=BOLT-LMM_v2.4/tables/LDSCORE.1000G_EUR.tab.gz ' \
-                f'--geneticMapFile=BOLT-LMM_v2.4/tables/genetic_map_hg19_withX.txt.gz ' \
+                f'--LDscoresFile=BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
+                f'--geneticMapFile=BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
                 f'--numThreads={self._association_pack.threads} ' \
                 f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
                 f'--verboseStats '
