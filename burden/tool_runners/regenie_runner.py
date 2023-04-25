@@ -207,7 +207,8 @@ class REGENIERunner(ToolRunner):
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary)
+                                       self._association_pack.is_binary,
+                                       add_array=False)
         run_cmd(cmd, is_docker=True,
                 docker_image='egardner413/mrcepid-burdentesting',
                 stdout_file=f'{self._output_prefix}.REGENIE_step1.log')
@@ -236,7 +237,8 @@ class REGENIERunner(ToolRunner):
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary)
+                                       self._association_pack.is_binary,
+                                       add_array=False)
 
         run_cmd(cmd, is_docker=True,
                 docker_image='egardner413/mrcepid-burdentesting',
@@ -261,7 +263,8 @@ class REGENIERunner(ToolRunner):
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary)
+                                       self._association_pack.is_binary,
+                                       add_array=False)
         run_cmd(cmd, is_docker=True,
                 docker_image='egardner413/mrcepid-burdentesting',
                 stdout_file=f'{chromosome}.REGENIE_markers.log')
