@@ -51,6 +51,11 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v1.1.2
+  * Internally changed return types from str to Path to enable compatibility with updated utilities
+  * Minor method parameters change to covariate processing when running burden tests for compatibility
+    * No changes were made to methodology
+
 * v1.1.1
   * Minor changes to BOLT commands to facilitate BOLT upgrade to v2.4.1
 

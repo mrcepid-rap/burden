@@ -1,8 +1,9 @@
 import re
 import csv
-from os.path import exists
-
 import pandas as pd
+
+from pathlib import Path
+from os.path import exists
 
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
@@ -18,9 +19,9 @@ class REGENIERunner(ToolRunner):
         # 1. Run step 1 of regenie
         print("Running REGENIE step 1")
         self._run_regenie_step_one()
-        # Add the step1 files to output so we can use later if need-be:
-        self._outputs.extend(['fit_out_pred.list',
-                              'fit_out_1.loco'])
+        # Add the step1 files to output, so we can use later if need-be:
+        self._outputs.extend([Path('fit_out_pred.list'),
+                              Path('fit_out_1.loco')])
 
         # 2. Prep bgen files for a run:
         print("Downloading and filtering raw bgen files")
@@ -199,7 +200,7 @@ class REGENIERunner(ToolRunner):
               '--extract /test/REGENIE_extract.snplist ' \
               '--covarFile /test/phenotypes_covariates.formatted.txt ' \
               '--phenoFile /test/phenotypes_covariates.formatted.txt ' \
-              '--maxCatLevels 100 ' \
+              '--maxCatLevels 110 ' \
               '--bsize 1000 ' \
               '--out /test/fit_out ' \
               f'--threads {str(self._association_pack.threads)} ' \
@@ -207,7 +208,8 @@ class REGENIERunner(ToolRunner):
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary)
+                                       self._association_pack.is_binary,
+                                       add_array=False)
         run_cmd(cmd, is_docker=True,
                 docker_image='egardner413/mrcepid-burdentesting',
                 stdout_file=f'{self._output_prefix}.REGENIE_step1.log')
@@ -231,12 +233,13 @@ class REGENIERunner(ToolRunner):
               f'--bsize 400 ' \
               f'--threads 1 ' \
               f'--minMAC 1 ' \
-              f'--maxCatLevels 100 ' \
+              f'--maxCatLevels 110 ' \
               f'--out /test/{tarball_prefix}.{chromosome} '
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary)
+                                       self._association_pack.is_binary,
+                                       add_array=False)
 
         run_cmd(cmd, is_docker=True,
                 docker_image='egardner413/mrcepid-burdentesting',
@@ -254,14 +257,15 @@ class REGENIERunner(ToolRunner):
               f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
               f'--pred /test/fit_out_pred.list ' \
-              f'--maxCatLevels 100 ' \
+              f'--maxCatLevels 110 ' \
               f'--bsize 200 ' \
               f'--threads 4 ' \
               f'--out /test/{chromosome}.markers.REGENIE '
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary)
+                                       self._association_pack.is_binary,
+                                       add_array=False)
         run_cmd(cmd, is_docker=True,
                 docker_image='egardner413/mrcepid-burdentesting',
                 stdout_file=f'{chromosome}.REGENIE_markers.log')
