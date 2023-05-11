@@ -7,7 +7,7 @@ from typing import List
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.association_resources import run_cmd, get_chromosomes, process_bgen_file, \
-    build_transcript_table, define_field_names_from_pandas
+    build_transcript_table, define_field_names_from_pandas, bgzip_and_tabix
 
 
 class BOLTRunner(ToolRunner):
@@ -123,7 +123,7 @@ class BOLTRunner(ToolRunner):
                 stdout_file=f'{self._output_prefix}.BOLT.log')
 
     # This parses the BOLT output file into a useable format for plotting/R
-    def _process_bolt_outputs(self) -> List[str]:
+    def _process_bolt_outputs(self) -> List[Path]:
 
         # First read in the BOLT stats file:
         bolt_table = pd.read_csv(f'{self._output_prefix}.bgen.stats.gz', sep="\t")
@@ -144,7 +144,8 @@ class BOLTRunner(ToolRunner):
 
         # We need to add in an 'AC' column. Pull samples total from the BOLT log file:
         n_bolt = 0
-        with open(self._output_prefix + '.BOLT.log', 'r') as bolt_log_file:
+        bolt_log_path = Path(f'{self._output_prefix}.BOLT.log')
+        with bolt_log_path.open('r') as bolt_log_file:
             for line in bolt_log_file:
                 if 'samples (Nbgen):' in line:
                     n_bolt = int(line.strip('samples (Nbgen): '))
@@ -156,23 +157,19 @@ class BOLTRunner(ToolRunner):
 
         # Now merge the transcripts table into the gene table to add annotation and the write
         bolt_table_gene = pd.merge(transcripts_table, bolt_table_gene, on='ENST', how="left")
-        with open(self._output_prefix + '.genes.BOLT.stats.tsv', 'w') as gene_out:
+
+        stats_path = Path(f'{self._output_prefix}.genes.BOLT.stats.tsv')
+        with stats_path.open('w') as gene_out:
             # Sort by chrom/pos just to be sure...
             bolt_table_gene = bolt_table_gene.sort_values(by=['chrom', 'start', 'end'])
-
             bolt_table_gene.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
-            gene_out.close()
 
-            # And bgzip and tabix...
-            cmd = "bgzip /test/" + self._output_prefix + '.genes.BOLT.stats.tsv'
-            run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-            cmd = "tabix -S 1 -s 2 -b 3 -e 4 /test/" + self._output_prefix + '.genes.BOLT.stats.tsv.gz'
-            run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        # Define an output(s) array to return
+        outputs = [Path(f'{self._output_prefix}.stats.gz'),
+                   bolt_log_path]
 
-        outputs = [self._output_prefix + '.stats.gz',
-                   self._output_prefix + '.genes.BOLT.stats.tsv.gz',
-                   self._output_prefix + '.genes.BOLT.stats.tsv.gz.tbi',
-                   self._output_prefix + '.BOLT.log']
+        # And bgzip and tabix...
+        outputs.extend(bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
 
         # And now process the SNP file (if necessary):
         # Read in the variant index (per-chromosome and mash together)
@@ -193,20 +190,15 @@ class BOLTRunner(ToolRunner):
             bolt_table_marker['BOLT_AC'] = bolt_table_marker['BOLT_MAF'] * (n_bolt*2)
             bolt_table_marker['BOLT_AC'] = bolt_table_marker['BOLT_AC'].round()
             bolt_table_marker = pd.merge(variant_index, bolt_table_marker, on='varID', how="left")
-            with open(self._output_prefix + '.markers.BOLT.stats.tsv', 'w') as marker_out:
+
+            marker_tsv = Path(f'{self._output_prefix}.markers.BOLT.stats.tsv')
+            with marker_tsv.open('w') as marker_out:
+
                 # Sort by chrom/pos just to be sure...
                 bolt_table_marker = bolt_table_marker.sort_values(by=['CHROM', 'POS'])
-
                 bolt_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
-                marker_out.close()
 
-                # And bgzip and tabix...
-                cmd = "bgzip /test/" + self._output_prefix + '.markers.BOLT.stats.tsv'
-                run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-                cmd = "tabix -S 1 -s 2 -b 3 -e 3 /test/" + self._output_prefix + '.markers.BOLT.stats.tsv.gz'
-                run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-
-            outputs.extend([self._output_prefix + '.markers.BOLT.stats.tsv.gz',
-                            self._output_prefix + '.markers.BOLT.stats.tsv.gz.tbi'])
+            # And bgzip and tabix...
+            outputs.extend(bgzip_and_tabix(marker_tsv, skip_row=1, sequence_row=2, begin_row=3))
 
         return outputs

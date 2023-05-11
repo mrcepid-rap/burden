@@ -1,8 +1,9 @@
 import re
 import csv
-from os.path import exists
-
 import pandas as pd
+
+from pathlib import Path
+from os.path import exists
 
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
@@ -18,9 +19,9 @@ class REGENIERunner(ToolRunner):
         # 1. Run step 1 of regenie
         print("Running REGENIE step 1")
         self._run_regenie_step_one()
-        # Add the step1 files to output so we can use later if need-be:
-        self._outputs.extend(['fit_out_pred.list',
-                              'fit_out_1.loco'])
+        # Add the step1 files to output, so we can use later if need-be:
+        self._outputs.extend([Path('fit_out_pred.list'),
+                              Path('fit_out_1.loco')])
 
         # 2. Prep bgen files for a run:
         print("Downloading and filtering raw bgen files")
