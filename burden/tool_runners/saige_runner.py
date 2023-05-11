@@ -1,10 +1,11 @@
 import pandas as pd
 
+from typing import List
 from pathlib import Path
 
 from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.association_resources import get_chromosomes, run_cmd, process_bgen_file,\
-    define_field_names_from_tarball_prefix, build_transcript_table
+from general_utilities.association_resources import get_chromosomes, run_cmd, process_bgen_file, \
+    define_field_names_from_tarball_prefix, build_transcript_table, bgzip_and_tabix
 from general_utilities.job_management.thread_utility import ThreadUtility
 
 
@@ -214,7 +215,11 @@ class SAIGERunner(ToolRunner):
 
         return saige_table
 
-    def _annotate_saige_output(self, completed_gene_tables: list, completed_marker_chromosomes: list) -> list:
+    def _annotate_saige_output(self, completed_gene_tables: list, completed_marker_chromosomes: list) -> List[Path]:
+
+        # Create an output array
+        outputs = [Path(f'{self._output_prefix}.SAIGE_step1.log'),
+                   Path(f'{self._output_prefix}.SAIGE_step2.log')]
 
         saige_table = pd.concat(completed_gene_tables)
 
@@ -222,26 +227,18 @@ class SAIGERunner(ToolRunner):
         # First read in the transcripts file
         transcripts_table = build_transcript_table()
 
-        # Now merge the transcripts table into the gene table to add annotation and the write
+        # Now merge the transcripts table into the gene table to add annotation and write
         saige_table = pd.merge(transcripts_table, saige_table, on='ENST', how="left")
-        with open(self._output_prefix + '.genes.SAIGE.stats.tsv', 'w') as gene_out:
+        saige_path = Path(f'{self._output_prefix}.genes.SAIGE.stats.tsv')
+        with saige_path.open('w') as gene_out:
 
             # Sort just in case
             saige_table = saige_table.sort_values(by=['chrom', 'start', 'end'])
 
             saige_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
-            gene_out.close()
 
-            # And bgzip and tabix...
-            cmd = "bgzip /test/" + self._output_prefix + '.genes.SAIGE.stats.tsv'
-            run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-            cmd = "tabix -S 1 -s 2 -b 3 -e 4 /test/" + self._output_prefix + '.genes.SAIGE.stats.tsv.gz'
-            run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-
-        outputs = [self._output_prefix + '.SAIGE_step1.log',
-                   self._output_prefix + '.SAIGE_step2.log',
-                   self._output_prefix + '.genes.SAIGE.stats.tsv.gz',
-                   self._output_prefix + '.genes.SAIGE.stats.tsv.gz.tbi']
+        # And bgzip and tabix...
+        outputs.extend(bgzip_and_tabix(saige_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
 
         if self._association_pack.run_marker_tests:
 
@@ -264,22 +261,17 @@ class SAIGERunner(ToolRunner):
                                                                     'AC_Allele2': 'SAIGE_AC',
                                                                     'AF_Allele2': 'SAIGE_MAF'})
             saige_table_marker = saige_table_marker.drop(columns=['CHR', 'POS', 'Allele1', 'Allele2', 'MissingRate'])
+
             saige_table_marker = pd.merge(variant_index, saige_table_marker, on='varID', how="left")
-            with open(self._output_prefix + '.markers.SAIGE.stats.tsv', 'w') as marker_out:
+            saige_marker_path = Path(f'{self._output_prefix}.markers.SAIGE.stats.tsv')
+            with saige_marker_path.open('w') as marker_out:
                 # Sort by chrom/pos just to be sure...
                 saige_table_marker = saige_table_marker.sort_values(by=['CHROM', 'POS'])
 
                 saige_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
-                marker_out.close()
 
-                # And bgzip and tabix...
-                cmd = "bgzip /test/" + self._output_prefix + '.markers.SAIGE.stats.tsv'
-                run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-                cmd = "tabix -S 1 -s 2 -b 3 -e 3 /test/" + self._output_prefix + '.markers.SAIGE.stats.tsv.gz'
-                run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-
-            outputs.append([self._output_prefix + '.markers.SAIGE.stats.tsv.gz',
-                            self._output_prefix + '.markers.SAIGE.stats.tsv.gz.tbi',
-                            self._output_prefix + '.SAIGE_markers.log'])
+            # And bgzip and tabix...
+            outputs.extend(bgzip_and_tabix(saige_marker_path, skip_row=1, sequence_row=2, begin_row=3))
+            outputs.append(Path(f'{self._output_prefix}.SAIGE_markers.log'))
 
         return outputs
