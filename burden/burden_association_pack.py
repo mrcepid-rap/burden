@@ -23,6 +23,8 @@ class BurdenProgramArgs(ProgramArgs):
     bolt_non_infinite: bool
     regenie_smaller_snps: Optional[dxpy.DXFile]
 
+    def _check_opts(self):
+        pass
 
 class BurdenAssociationPack(AssociationPack):
 
