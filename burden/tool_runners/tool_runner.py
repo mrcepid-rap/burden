@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import List
 
 from burden.burden_ingester import BurdenAssociationPack
@@ -11,7 +12,7 @@ class ToolRunner(ABC):
         self._output_prefix = output_prefix
         self._outputs = []
 
-    def get_outputs(self) -> List[str]:
+    def get_outputs(self) -> List[Path]:
         return self._outputs
 
     @abstractmethod
