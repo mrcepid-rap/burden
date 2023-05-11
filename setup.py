@@ -12,7 +12,7 @@ def load_requirements(fname: Path):
 
 setup(
     name='burden',
-    version='1.1.1',
+    version='1.1.2',
     packages=find_packages(),
     url='https://github.com/mrcepid-rap/mrcepid-runassociationtesting-burden',
     license='',
