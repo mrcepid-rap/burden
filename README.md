@@ -519,8 +519,8 @@ python package.
 ##### Inputs
 
 Variant data is identical to that for [STAAR](#staar). To ingest this data into Python, we convert the R object for 
-staar into a sparse matrix using the script `sparseMatrixProcessor.R` in the `resources/usr/bin/` directory. This script 
-creates a tab-delimited file of all non-reference genotypes with ENST information like:
+staar into a sparse matrix using the script `sparseMatrixProcessor.R` in the `general_utilities.linear_model.R_resources` 
+package. This script creates a tab-delimited file of all non-reference genotypes with ENST information like:
 
 ```text
 FID varID   gt  ENST
