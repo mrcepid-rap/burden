@@ -51,6 +51,10 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v1.1.3
+  * Implemented _check_opts method for interface compatibility
+  * Minor README changes to reflect changes in linear model code refactoring 
+
 * v1.1.2
   * Internally changed return types from str to Path to enable compatibility with updated utilities
   * Minor method parameters change to covariate processing when running burden tests for compatibility
@@ -519,8 +523,8 @@ python package.
 ##### Inputs
 
 Variant data is identical to that for [STAAR](#staar). To ingest this data into Python, we convert the R object for 
-staar into a sparse matrix using the script `sparseMatrixProcessor.R` in the `resources/usr/bin/` directory. This script 
-creates a tab-delimited file of all non-reference genotypes with ENST information like:
+staar into a sparse matrix using the script `sparseMatrixProcessor.R` in the `general_utilities.linear_model.R_resources` 
+package. This script creates a tab-delimited file of all non-reference genotypes with ENST information like:
 
 ```text
 FID varID   gt  ENST
