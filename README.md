@@ -51,6 +51,10 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v1.1.3
+  * Implemented _check_opts method for interface compatibility
+  * Minor README changes to reflect changes in linear model code refactoring 
+
 * v1.1.2
   * Internally changed return types from str to Path to enable compatibility with updated utilities
   * Minor method parameters change to covariate processing when running burden tests for compatibility
