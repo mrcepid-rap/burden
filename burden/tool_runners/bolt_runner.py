@@ -6,7 +6,7 @@ from typing import List
 
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
-from general_utilities.association_resources import run_cmd, get_chromosomes, process_bgen_file, \
+from general_utilities.association_resources import get_chromosomes, process_bgen_file, \
     build_transcript_table, define_field_names_from_pandas, bgzip_and_tabix
 
 
@@ -18,7 +18,7 @@ class BOLTRunner(ToolRunner):
         # Have to do this for all chromosomes and all included tarballs, so going to parallelise:
 
         # 1. First we need to download / prep the BGEN files we want to run through BOLT
-        print("Processing BGEN files for BOLT run...")
+        self._logger.info("Processing BGEN files for BOLT run...")
         thread_utility = ThreadUtility(self._association_pack.threads,
                                        error_message='A BOLT thread failed',
                                        incrementor=10,
@@ -49,11 +49,11 @@ class BOLTRunner(ToolRunner):
             thread_utility.collect_futures()
 
         # 2. Actually run BOLT
-        print("Running BOLT...")
+        self._logger.info("Running BOLT...")
         self._run_bolt()
 
         # 3. Process the outputs
-        print("Processing BOLT outputs...")
+        self._logger.info("Processing BOLT outputs...")
         self._outputs.extend(self._process_bolt_outputs())
 
     # This handles processing of mask and whole-exome bgen files for input into BOLT
@@ -65,7 +65,7 @@ class BOLTRunner(ToolRunner):
         cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-last\' ' \
                     f'--out /test/{tarball_prefix}.{chromosome} ' \
                     f'--make-just-pvar'
-        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
         with open(f'{tarball_prefix}.{chromosome}.fixer', 'w') as fix_writer:
             pvar_reader = csv.DictReader(open(f'{tarball_prefix}.{chromosome}.pvar', 'r'), delimiter='\t')
@@ -79,7 +79,7 @@ class BOLTRunner(ToolRunner):
               f'--export bgen-1.2 \'bits=\'8 ' \
               f'--out /test/{tarball_prefix}.{chromosome} ' \
               f'--keep-fam /test/SAMPLES_Include.txt'
-        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
     # Run rare variant association testing using BOLT
     def _run_bolt(self) -> None:
@@ -118,9 +118,8 @@ class BOLTRunner(ToolRunner):
         if len(self._association_pack.found_categorical_covariates) > 0:
             for covar in self._association_pack.found_categorical_covariates:
                 cmd += f' --covarCol={covar} '
-        run_cmd(cmd, is_docker=True,
-                docker_image='egardner413/mrcepid-burdentesting',
-                stdout_file=f'{self._output_prefix}.BOLT.log')
+        bolt_log = Path(f'{self._output_prefix}.BOLT.log')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
 
     # This parses the BOLT output file into a useable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:

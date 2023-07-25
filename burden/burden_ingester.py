@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Tuple, List
 
-from general_utilities.association_resources import BGENInformation, run_cmd
+from general_utilities.association_resources import BGENInformation
 
 from burden.burden_association_pack import BurdenAssociationPack, BurdenProgramArgs
 from runassociationtesting.ingest_data import IngestData
@@ -152,7 +152,7 @@ class BurdenIngestData(IngestData):
         cmd = "plink2 " \
               "--bfile /test/genetics/UKBB_470K_Autosomes_QCd --make-bed --keep-fam /test/SAMPLES_Include.txt " \
               "--out /test/genetics/UKBB_470K_Autosomes_QCd_WBA"
-        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
         # I have to do this to recover the sample information from plink
         cmd = "docker run -v /home/dnanexus/:/test/ egardner413/mrcepid-associationtesting plink2 " \
