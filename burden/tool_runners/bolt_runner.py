@@ -57,8 +57,7 @@ class BOLTRunner(ToolRunner):
         self._outputs.extend(self._process_bolt_outputs())
 
     # This handles processing of mask and whole-exome bgen files for input into BOLT
-    @staticmethod
-    def _process_bolt_bgen_file(tarball_prefix: str, chromosome: str) -> None:
+    def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> None:
 
         # Do the mask first...
         # We need to modify the bgen file to have an alternate name for IDing masks

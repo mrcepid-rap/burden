@@ -145,8 +145,7 @@ class BurdenIngestData(IngestData):
 
             return Path('genetics/rel_snps.txt')
 
-    @staticmethod
-    def _generate_filtered_genetic_data():
+    def _generate_filtered_genetic_data(self):
 
         # Generate a plink file to use that only has included individuals:
         cmd = "plink2 " \
