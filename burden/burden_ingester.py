@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Tuple, List
 
-from general_utilities.association_resources import BGENInformation
+from general_utilities.import_utils.import_lib import BGENInformation
 
 from burden.burden_association_pack import BurdenAssociationPack, BurdenProgramArgs
 from runassociationtesting.ingest_data import IngestData
