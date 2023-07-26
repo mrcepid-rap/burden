@@ -6,8 +6,9 @@ from typing import List
 
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
-from general_utilities.association_resources import get_chromosomes, process_bgen_file, \
-    build_transcript_table, define_field_names_from_pandas, bgzip_and_tabix
+from general_utilities.association_resources import get_chromosomes, build_transcript_table, \
+    define_field_names_from_pandas, bgzip_and_tabix
+from general_utilities.import_utils.import_lib import process_bgen_file
 
 
 class BOLTRunner(ToolRunner):

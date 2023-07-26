@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 import dxpy
 
-from general_utilities.association_resources import BGENInformation
+from general_utilities.import_utils.import_lib import BGENInformation
 from runassociationtesting.association_pack import AssociationPack, ProgramArgs
 
 
