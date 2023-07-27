@@ -51,6 +51,9 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v1.1.4
+  * Implemented the CommandExecutor class
+
 * v1.1.3
   * Implemented _check_opts method for interface compatibility
   * Minor README changes to reflect changes in linear model code refactoring 

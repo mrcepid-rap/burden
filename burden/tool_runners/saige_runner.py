@@ -1,11 +1,12 @@
 import pandas as pd
 
-from typing import List
+from typing import List, Tuple
 from pathlib import Path
 
 from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.association_resources import get_chromosomes, run_cmd, process_bgen_file, \
-    define_field_names_from_tarball_prefix, build_transcript_table, bgzip_and_tabix
+from general_utilities.association_resources import get_chromosomes, define_field_names_from_tarball_prefix, \
+    build_transcript_table, bgzip_and_tabix
+from general_utilities.import_utils.import_lib import process_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 
 
@@ -14,11 +15,11 @@ class SAIGERunner(ToolRunner):
     def run_tool(self) -> None:
 
         # 1. Run SAIGE step one without parallelisation
-        print("Running SAIGE step 1...")
-        self._saige_step_one()
+        self._logger.info("Running SAIGE step 1...")
+        self._outputs.append(self._saige_step_one())
 
         # 2. Run SAIGE step two WITH parallelisation by chromosome
-        print("Running SAIGE step 2...")
+        self._logger.info("Running SAIGE step 2...")
         thread_utility = ThreadUtility(self._association_pack.threads,
                                        error_message='A SAIGE thread failed', 
                                        incrementor=10, 
@@ -33,23 +34,25 @@ class SAIGERunner(ToolRunner):
                                               chromosome=chromosome)
 
         # 3. Gather preliminary results
-        print("Gathering SAIGE mask-based results...")
+        self._logger.info("Gathering SAIGE mask-based results...")
         completed_gene_tables = []
-        log_file = open(self._output_prefix + '.SAIGE_step2.log', 'w')
-        for result in thread_utility:
-            tarball_prefix, finished_chromosome = result
-            completed_gene_tables.append(self._process_saige_output(tarball_prefix, finished_chromosome))
-            log_file.write(f'{tarball_prefix + "-" + finished_chromosome:{"-"}^{50}}')
-            with open(tarball_prefix + "." + finished_chromosome + ".SAIGE_step2.log", 'r') as current_log:
-                for line in current_log:
-                    log_file.write(line)
-                current_log.close()
-        log_file.close()
+        saige_step2_gene_log = Path(f'{self._output_prefix}.SAIGE_step2.log')
+        with saige_step2_gene_log.open('w') as saige_step2_genes_writer:
+            for result in thread_utility:
+                tarball_prefix, finished_chromosome, current_log = result
+                completed_gene_tables.append(self._process_saige_output(tarball_prefix, finished_chromosome))
+
+                # Write a header for each file
+                saige_step2_genes_writer.write(f'{tarball_prefix + "-" + finished_chromosome:{"-"}^{50}}')
+                with current_log.open('r') as current_log_reader:
+                    for line in current_log_reader:
+                        saige_step2_genes_writer.write(line)
+        completed_gene_tables.append(saige_step2_gene_log)
 
         # 4. Run per-marker tests, if requested
         completed_marker_chromosomes = []
         if self._association_pack.run_marker_tests:
-            print("Running per-marker tests...")
+            self._logger.info("Running per-marker tests...")
             thread_utility = ThreadUtility(self._association_pack.threads,
                                            error_message='A SAIGE marker thread failed',
                                            incrementor=1,
@@ -60,22 +63,22 @@ class SAIGERunner(ToolRunner):
                                           chromosome=chromosome)
                 completed_marker_chromosomes.append(chromosome)
 
-            markers_log_file = open(self._output_prefix + '.SAIGE_markers.log', 'w')
-            for result in thread_utility:
-                finished_chromosome = result
-                markers_log_file.write(f'{finished_chromosome + ".log":{"-"}^{50}}')
-                with open(finished_chromosome + ".SAIGE_markers.log", 'r') as current_log:
-                    for line in current_log:
-                        markers_log_file.write(line)
-                    current_log.close()
-            markers_log_file.close()
+            saige_step2_markers_log = Path(f'{self._output_prefix}.SAIGE_step2.log')
+            with saige_step2_markers_log.open('w') as saige_step2_markers_writer:
+                for result in thread_utility:
+                    finished_chromosome, current_log = result
+                    saige_step2_markers_writer.write(f'{finished_chromosome + ".log":{"-"}^{50}}')
+                    with current_log.open('r') as current_log_reader:
+                        for line in current_log_reader:
+                            saige_step2_markers_writer.write(line)
+            self._outputs.append(saige_step2_markers_log)
 
         # 5. Process final results
-        print("Processing final SAIGE output...")
+        self._logger.info("Processing final SAIGE output...")
         self._outputs.extend(self._annotate_saige_output(completed_gene_tables, completed_marker_chromosomes))
 
     # Run rare variant association testing using SAIGE-GENE
-    def _saige_step_one(self) -> None:
+    def _saige_step_one(self) -> Path:
 
         # See the README.md for more information on these parameters
         # Just to note – I previously tried to implement the method that includes variance ratio estimation. However,
@@ -115,10 +118,10 @@ class SAIGERunner(ToolRunner):
             cmd = cmd + '--qCovarColList=wes_batch '
         cmd = cmd + '--covarColList=' + ','.join(all_covariates)
 
-        run_cmd(cmd, is_docker=True,
-                docker_image='egardner413/mrcepid-burdentesting',
-                stdout_file=f'{self._output_prefix}.SAIGE_step1.log',
-                print_cmd=True)
+        saige_log_file = Path(f'{self._output_prefix}.SAIGE_step1.log')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=saige_log_file, print_cmd=True)
+
+        return saige_log_file
 
     # This exists for a very stupid reason – they _heavily_ modified the groupFile for v1.0 and I haven't gone back
     # to change how this file is made in 'collapse variants'
@@ -146,14 +149,15 @@ class SAIGERunner(ToolRunner):
 
     # This is a helper function to parallelise SAIGE step 2 by chromosome
     # This returns the tarball_prefix and chromosome number to make it easier to generate output
-    def _saige_step_two(self, tarball_prefix: str, chromosome: str) -> tuple:
+    def _saige_step_two(self, tarball_prefix: str, chromosome: str) -> Tuple[str, str, Path]:
 
         cmd = f'bcftools view --threads 1 -S /test/SAMPLES_Include.txt -Ob ' \
               f'-o /test/{tarball_prefix}.{chromosome}.saige_input.bcf ' \
               f'/test/{tarball_prefix}.{chromosome}.SAIGE.bcf'
-        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
+
         cmd = f'bcftools index --threads 1 /test/{tarball_prefix}.{chromosome}.saige_input.bcf'
-        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
         
         # See the README.md for more information on these parameters
         cmd = f'step2_SPAtests.R ' \
@@ -174,13 +178,12 @@ class SAIGERunner(ToolRunner):
         if self._association_pack.is_binary:
             cmd = cmd + '--is_Firth_beta=TRUE'
 
-        run_cmd(cmd, is_docker=True,
-                docker_image='egardner413/mrcepid-burdentesting',
-                stdout_file=f'{tarball_prefix}.{chromosome}.SAIGE_step2.log')
+        saige_log_file = Path(f'{tarball_prefix}.{chromosome}.SAIGE_step2.log')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=saige_log_file)
 
-        return tarball_prefix, chromosome
+        return tarball_prefix, chromosome, saige_log_file
 
-    def _saige_marker_run(self, chromosome: str) -> str:
+    def _saige_marker_run(self, chromosome: str) -> Tuple[str, Path]:
 
         process_bgen_file(self._association_pack.bgen_dict[chromosome], chromosome)
 
@@ -197,11 +200,11 @@ class SAIGERunner(ToolRunner):
               '--maxMissing=1 '
         if self._association_pack.is_binary:
             cmd = cmd + '--is_Firth_beta=TRUE'
-        run_cmd(cmd, is_docker=True,
-                docker_image='egardner413/mrcepid-burdentesting',
-                stdout_file=f'{chromosome}.SAIGE_markers.log')
 
-        return chromosome
+        saige_log_file = Path(f'{chromosome}.SAIGE_markers.log')
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=saige_log_file)
+
+        return chromosome, saige_log_file
 
     def _process_saige_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
 
@@ -218,8 +221,7 @@ class SAIGERunner(ToolRunner):
     def _annotate_saige_output(self, completed_gene_tables: list, completed_marker_chromosomes: list) -> List[Path]:
 
         # Create an output array
-        outputs = [Path(f'{self._output_prefix}.SAIGE_step1.log'),
-                   Path(f'{self._output_prefix}.SAIGE_step2.log')]
+        outputs = []
 
         saige_table = pd.concat(completed_gene_tables)
 
@@ -272,6 +274,5 @@ class SAIGERunner(ToolRunner):
 
             # And bgzip and tabix...
             outputs.extend(bgzip_and_tabix(saige_marker_path, skip_row=1, sequence_row=2, begin_row=3))
-            outputs.append(Path(f'{self._output_prefix}.SAIGE_markers.log'))
 
         return outputs
