@@ -1,3 +1,0 @@
-dxpy==0.346.0
-pandas==1.5.2
-setuptools==60.2.0
