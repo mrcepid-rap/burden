@@ -4,7 +4,7 @@ from typing import Type
 
 from burden import burden_ingester
 from burden.burden_association_pack import BurdenProgramArgs, BurdenAssociationPack
-from runassociationtesting.module_loader import ModuleLoader
+from general_utilities.import_utils.module_loader.module_loader import ModuleLoader
 from burden.tool_runners.bolt_runner import BOLTRunner
 from burden.tool_runners.glm_runner import GLMRunner
 from burden.tool_runners.regenie_runner import REGENIERunner

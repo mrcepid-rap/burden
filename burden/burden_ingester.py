@@ -9,7 +9,7 @@ from typing import Optional, Dict, Tuple, List
 from general_utilities.import_utils.import_lib import BGENInformation
 
 from burden.burden_association_pack import BurdenAssociationPack, BurdenProgramArgs
-from runassociationtesting.ingest_data import IngestData
+from general_utilities.import_utils.module_loader.ingest_data import IngestData
 
 
 class BurdenIngestData(IngestData):
