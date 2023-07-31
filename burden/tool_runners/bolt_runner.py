@@ -92,34 +92,36 @@ class BOLTRunner(ToolRunner):
                 f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
                 f'--phenoCol={self._association_pack.pheno_names[0]} ' \
                 f'--covarFile=/test/phenotypes_covariates.formatted.txt ' \
-                f'--covarCol=sex ' \
-                f'--covarCol=wes_batch ' \
-                f'--qCovarCol=age ' \
-                f'--qCovarCol=age_squared ' \
-                f'--qCovarCol=PC{{1:10}} ' \
                 f'--covarMaxLevels=110 ' \
                 f'--LDscoresFile=BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
                 f'--geneticMapFile=BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
                 f'--numThreads={self._association_pack.threads} ' \
                 f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
-                f'--verboseStats '
-
-        cmd += f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
-               f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz'
+                f'--verboseStats ' \
+                f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
+                f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz '
 
         if self._association_pack.is_bolt_non_infinite:
-            cmd += ' --lmmForceNonInf'
+            cmd += '--lmmForceNonInf '
         else:
-            cmd += ' --lmmInfOnly'
+            cmd += '--lmmInfOnly '
+
+        if not self._association_pack.ignore_base_covariates:
+            cmd += f'--covarCol=sex ' \
+                   f'--covarCol=wes_batch ' \
+                   f'--qCovarCol=age ' \
+                   f'--qCovarCol=age_squared ' \
+                   f'--qCovarCol=PC{{1:10}} '
 
         if len(self._association_pack.found_quantitative_covariates) > 0:
             for covar in self._association_pack.found_quantitative_covariates:
-                cmd += f' --qCovarCol={covar} '
+                cmd += f'--qCovarCol={covar} '
         if len(self._association_pack.found_categorical_covariates) > 0:
             for covar in self._association_pack.found_categorical_covariates:
-                cmd += f' --covarCol={covar} '
+                cmd += f'--covarCol={covar} '
         bolt_log = Path(f'{self._output_prefix}.BOLT.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
+        self._logger.info(cmd)
 
     # This parses the BOLT output file into a useable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:
