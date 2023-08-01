@@ -219,9 +219,9 @@ class REGENIERunner(ToolRunner):
                                        add_array=False,
                                        ignore_base=self._association_pack.ignore_base_covariates)
 
+        self._logger.info(cmd)
         regenie_log = Path(f'{self._output_prefix}.REGENIE_step1.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
-
         return regenie_log
 
     def _run_regenie_step_two(self, tarball_prefix: str, chromosome: str) -> Tuple[str, str, Path]:
@@ -251,7 +251,7 @@ class REGENIERunner(ToolRunner):
                                        self._association_pack.is_binary,
                                        add_array=False,
                                        ignore_base=self._association_pack.ignore_base_covariates)
-
+        self._logger.info(cmd)
         regenie_log = Path(f'{tarball_prefix}.{chromosome}.REGENIE_genes.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
 
@@ -277,7 +277,7 @@ class REGENIERunner(ToolRunner):
                                        self._association_pack.is_binary,
                                        add_array=False,
                                        ignore_base=self._association_pack.ignore_base_covariates)
-
+        self._logger.info(cmd)
         regenie_log = Path(f'{chromosome}.REGENIE_markers.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
 

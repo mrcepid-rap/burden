@@ -120,7 +120,7 @@ class BOLTRunner(ToolRunner):
             for covar in self._association_pack.found_categorical_covariates:
                 cmd += f'--covarCol={covar} '
         bolt_log = Path(f'{self._output_prefix}.BOLT.log')
-        self._logger.info(cmd)
+
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
 
     # This parses the BOLT output file into a usable format for plotting/R
