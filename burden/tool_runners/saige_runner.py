@@ -84,39 +84,42 @@ class SAIGERunner(ToolRunner):
         # Just to note – I previously tried to implement the method that includes variance ratio estimation. However,
         # there are too few low MAC variants in the genotype files to perform this step accurately. The SAIGE
         # documentation includes this step, but I am very unsure how it works...
-        cmd = 'step1_fitNULLGLMM.R ' \
-                    '--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
+        cmd = f'step1_fitNULLGLMM.R ' \
+                    f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
                     f'--phenoCol={self._association_pack.pheno_names[0]} ' \
-                    '--isCovariateTransform=FALSE ' \
-                    '--sampleIDColinphenoFile=IID ' \
+                    f'--isCovariateTransform=FALSE ' \
+                    f'--sampleIDColinphenoFile=IID ' \
                     f'--outputPrefix=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT ' \
-                    '--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
-                    '--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
-                    f'--nThreads={str(self._association_pack.threads)} ' \
-                    '--LOCO=FALSE ' \
-                    '--skipModelFitting=FALSE ' \
-                    '--useSparseGRMtoFitNULL=TRUE ' \
-                    '--skipVarianceRatioEstimation=TRUE '
+                    f'--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
+                    f'--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
+                    f'--nThreads={self._association_pack.threads} ' \
+                    f'--LOCO=FALSE ' \
+                    f'--skipModelFitting=FALSE ' \
+                    f'--useSparseGRMtoFitNULL=TRUE ' \
+                    f'--skipVarianceRatioEstimation=TRUE '
         if self._association_pack.is_binary:
-            cmd = cmd + '--traitType=binary '
+            cmd = cmd + f'--traitType=binary '
         else:
-            cmd = cmd + '--traitType=quantitative '
+            cmd = cmd + f'--traitType=quantitative '
 
         # Manage covariates
-        if self._association_pack.sex == 2:
-            default_covars = ['PC' + str(x) for x in range(1, 11)] + ['age', 'age_squared', 'sex', 'wes_batch']
+        if self._association_pack.ignore_base_covariates:
+            all_covariates = []
+            cat_covars = []
         else:
-            default_covars = ['PC' + str(x) for x in range(1, 11)] + ['age', 'age_squared', 'wes_batch']
-        all_covariates = [','.join(default_covars)]  # A list to manage appending additional covariates
-        if len(self._association_pack.found_quantitative_covariates) > 0:
-            all_covariates.append(','.join(self._association_pack.found_quantitative_covariates))
-        if len(self._association_pack.found_categorical_covariates) > 0:
-            cat_covars_join = ','.join(self._association_pack.found_categorical_covariates)
-            all_covariates.append(cat_covars_join)
-            cmd = cmd + '--qCovarColList=wes_batch,' + cat_covars_join + ' '
-        else:
-            cmd = cmd + '--qCovarColList=wes_batch '
-        cmd = cmd + '--covarColList=' + ','.join(all_covariates)
+            all_covariates = [f'PC{PC}' for PC in range(1, 11)] + ['age', 'age_squared', 'wes_batch']
+            if self._association_pack.sex == 2:
+                all_covariates.extend('sex')
+            cat_covars = ['wes_batch']
+
+        all_covariates.extend(self._association_pack.found_quantitative_covariates)
+        all_covariates.extend(self._association_pack.found_categorical_covariates)
+        cat_covars.extend(self._association_pack.found_categorical_covariates)
+
+        if len(all_covariates) > 0:
+            cmd = cmd + f'--covarColList=' + ','.join(all_covariates)
+        if len(cat_covars) > 0:
+            cmd = cmd + f'--qCovarColList=' + ','.join(cat_covars)
 
         saige_log_file = Path(f'{self._output_prefix}.SAIGE_step1.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=saige_log_file, print_cmd=True)

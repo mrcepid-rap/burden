@@ -12,14 +12,16 @@ class STAARRunner(ToolRunner):
     def run_tool(self) -> None:
 
         # 1. Run the STAAR NULL model
-        print("Running STAAR Null Model...")
+        self._logger.info("Running STAAR Null Model...")
         staar_null(phenoname=self._association_pack.pheno_names[0],
                    is_binary=self._association_pack.is_binary,
+                   sex=self._association_pack.sex,
+                   ignore_base=self._association_pack.ignore_base_covariates,
                    found_quantitative_covariates=self._association_pack.found_quantitative_covariates,
                    found_categorical_covariates=self._association_pack.found_categorical_covariates)
 
         # 2. Run the actual per-gene association tests
-        print("Running STAAR masks * chromosomes...")
+        self._logger.info("Running STAAR masks * chromosomes...")
         thread_utility = ThreadUtility(self._association_pack.threads,
                                        error_message='A STAAR thread failed',
                                        incrementor=10,
@@ -36,7 +38,7 @@ class STAARRunner(ToolRunner):
                                                   has_gene_info=False)
 
         # 3. Print a preliminary STAAR output
-        print("Finalising STAAR outputs...")
+        self._logger.info("Finalising STAAR outputs...")
         completed_staar_files = []
         # And gather the resulting futures
         for result in thread_utility:
