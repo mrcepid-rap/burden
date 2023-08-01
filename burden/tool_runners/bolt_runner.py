@@ -123,7 +123,7 @@ class BOLTRunner(ToolRunner):
         self._logger.info(cmd)
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
 
-    # This parses the BOLT output file into a useable format for plotting/R
+    # This parses the BOLT output file into a usable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:
 
         # First read in the BOLT stats file:

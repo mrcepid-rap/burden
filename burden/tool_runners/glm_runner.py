@@ -14,14 +14,15 @@ class GLMRunner(ToolRunner):
         # 1. Do setup for the linear models.
         # This will load all variants, genes, and phenotypes into memory to allow for parallelization
         # This function returns a class of type LinearModelPack containing info for running GLMs
-        print("Loading data and running null Linear Model")
+        self._logger.info("Loading data and running null Linear Model")
         null_model = linear_model.linear_model_null(self._association_pack.pheno_names[0],
                                                     self._association_pack.is_binary,
+                                                    self._association_pack.ignore_base_covariates,
                                                     self._association_pack.found_quantitative_covariates,
                                                     self._association_pack.found_categorical_covariates)
 
         # 2. Load the tarballs INTO separate genotypes dictionaries
-        print("Loading Linear Model genotypes")
+        self._logger.info("Loading Linear Model genotypes")
         thread_utility = ThreadUtility(self._association_pack.threads,
                                        error_message='A GLM thread failed',
                                        incrementor=10,
@@ -39,7 +40,7 @@ class GLMRunner(ToolRunner):
             genotype_packs[tarball_prefix] = genotype_dict
 
         # 3. Iterate through every model / gene (in linear_model_pack['genes']) pair and run a GLM
-        print("Submitting Linear Models to threads")
+        self._logger.info("Submitting Linear Models to threads")
         thread_utility = ThreadUtility(self._association_pack.threads,
                                        error_message='A GLM thread failed',
                                        incrementor=500,
@@ -74,5 +75,5 @@ class GLMRunner(ToolRunner):
         lm_stats_file.close()
 
         # 5. Annotate unformatted results and print final outputs
-        print("Annotating Linear Model results")
+        self._logger.info("Annotating Linear Model results")
         self._outputs.extend(process_linear_model_outputs(self._output_prefix))
