@@ -18,14 +18,6 @@ class REGENIERunner(ToolRunner):
 
     def run_tool(self) -> None:
 
-        # 1. Run step 1 of regenie
-        self._logger.info("Running REGENIE step 1")
-        regenie_step1_log = self._run_regenie_step_one()
-        # Add the step1 files to output, so we can use later if need-be:
-        self._outputs.extend([Path('fit_out_pred.list'),
-                              Path('fit_out_1.loco'),
-                              regenie_step1_log])
-
         # 2. Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
         thread_utility = ThreadUtility(self._association_pack.threads,
@@ -40,6 +32,15 @@ class REGENIERunner(ToolRunner):
                                       chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
                                       chromosome=chromosome)
         thread_utility.collect_futures()
+
+        # 1. Run step 1 of regenie
+        self._logger.info("Running REGENIE step 1")
+        regenie_step1_log = self._run_regenie_step_one()
+        # Add the step1 files to output, so we can use later if need-be:
+        self._outputs.extend([Path('fit_out_pred.list'),
+                              Path('fit_out_1.loco'),
+                              regenie_step1_log])
+
 
         # 3. Prep mask files
         self._logger.info("Prepping mask files")
@@ -219,7 +220,6 @@ class REGENIERunner(ToolRunner):
                                        add_array=False,
                                        ignore_base=self._association_pack.ignore_base_covariates)
 
-        self._logger.info(cmd)
         regenie_log = Path(f'{self._output_prefix}.REGENIE_step1.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
         return regenie_log
@@ -251,7 +251,7 @@ class REGENIERunner(ToolRunner):
                                        self._association_pack.is_binary,
                                        add_array=False,
                                        ignore_base=self._association_pack.ignore_base_covariates)
-        self._logger.info(cmd)
+
         regenie_log = Path(f'{tarball_prefix}.{chromosome}.REGENIE_genes.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
 
@@ -277,7 +277,7 @@ class REGENIERunner(ToolRunner):
                                        self._association_pack.is_binary,
                                        add_array=False,
                                        ignore_base=self._association_pack.ignore_base_covariates)
-        self._logger.info(cmd)
+
         regenie_log = Path(f'{chromosome}.REGENIE_markers.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
 
