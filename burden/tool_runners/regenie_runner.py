@@ -41,7 +41,6 @@ class REGENIERunner(ToolRunner):
                               Path('fit_out_1.loco'),
                               regenie_step1_log])
 
-
         # 3. Prep mask files
         self._logger.info("Prepping mask files")
         thread_utility = ThreadUtility(self._association_pack.threads,
