@@ -38,8 +38,8 @@ class BOLTRunner(ToolRunner):
                                                   chromosome=chromosome)
 
                 if self._association_pack.run_marker_tests:
-                    poss_chromosomes.write(f'/test/{chromosome}.markers.bgen '
-                                           f'/test/{chromosome}.markers.sample\n')
+                    poss_chromosomes.write(f'/test/filtered_bgen/{chromosome}.filtered.bgen '
+                                           f'/test/filtered_bgen/{chromosome}.filtered.sample\n')
                     # This makes use of a utility class from AssociationResources since bgen filtering/processing is
                     # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
                     thread_utility.launch_job(class_type=process_bgen_file,
@@ -77,8 +77,7 @@ class BOLTRunner(ToolRunner):
               f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.sample ' \
               f'--update-name /test/{tarball_prefix}.{chromosome}.fixer ' \
               f'--export bgen-1.2 \'bits=\'8 ' \
-              f'--out /test/{tarball_prefix}.{chromosome} ' \
-              f'--keep-fam /test/SAMPLES_Include.txt'
+              f'--out /test/{tarball_prefix}.{chromosome} '
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
     # Run rare variant association testing using BOLT
@@ -89,6 +88,7 @@ class BOLTRunner(ToolRunner):
         cmd = f'bolt ' + \
                 f'--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
                 f'--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
+                f'--remove=/test/SAMPLES_Remove.txt ' \
                 f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
                 f'--phenoCol={self._association_pack.pheno_names[0]} ' \
                 f'--covarFile=/test/phenotypes_covariates.formatted.txt ' \
@@ -121,7 +121,7 @@ class BOLTRunner(ToolRunner):
                 cmd += f'--covarCol={covar} '
         bolt_log = Path(f'{self._output_prefix}.BOLT.log')
 
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log, livestream_out=True)
 
     # This parses the BOLT output file into a usable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:
