@@ -154,7 +154,7 @@ class SAIGERunner(ToolRunner):
     # This returns the tarball_prefix and chromosome number to make it easier to generate output
     def _saige_step_two(self, tarball_prefix: str, chromosome: str) -> Tuple[str, str, Path]:
 
-        cmd = f'bcftools view --threads 1 -S /test/SAMPLES_Include.txt -Ob ' \
+        cmd = f'bcftools view --threads 1 -S /test/SAMPLES_Include.bcf.txt -Ob ' \
               f'-o /test/{tarball_prefix}.{chromosome}.saige_input.bcf ' \
               f'/test/{tarball_prefix}.{chromosome}.SAIGE.bcf'
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
