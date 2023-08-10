@@ -9,7 +9,7 @@ from typing import Tuple, List
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.association_resources import get_chromosomes, define_covariate_string, \
-    define_field_names_from_tarball_prefix, build_transcript_table, bgzip_and_tabix
+    define_field_names_from_tarball_prefix, build_transcript_table, bgzip_and_tabix, get_sample_count
 from general_utilities.import_utils.import_lib import process_bgen_file
 
 
@@ -173,33 +173,29 @@ class REGENIERunner(ToolRunner):
 
         # Need to define separate min/max MAC files for REGENIE as it defines them slightly differently from BOLT:
         # First we need the number of individuals that are being processed:
-        with open('SAMPLES_Include.txt') as sample_file:
-            n_samples = 0
-            for _ in sample_file:
-                n_samples += 1
-            sample_file.close()
+        n_samples = get_sample_count()
 
-            # And generate a SNP list for the --extract parameter of REGENIE, while considering SNPs from
-            # the regenie_smaller_snps input parameter (if provided). plink2 order of operations:
-            # 1. Select variants from --extract (if present)
-            # 2. THEN filter based on max/min AC (mac/max-mac)
-            max_mac = (n_samples * 2) - 100
-            cmd = f'plink2 --bfile /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
-                  f'--min-ac 100 ' \
-                  f'--max-ac {str(max_mac)}' \
-                  f' --write-snplist ' \
-                  f'--out /test/REGENIE_extract'
+        # And generate a SNP list for the --extract parameter of REGENIE, while considering SNPs from
+        # the regenie_smaller_snps input parameter (if provided). plink2 order of operations:
+        # 1. Select variants from --extract (if present)
+        # 2. THEN filter based on max/min AC (mac/max-mac)
+        max_mac = (n_samples * 2) - 100
+        cmd = f'plink2 --bfile /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
+              f'--min-ac 100 ' \
+              f'--max-ac {str(max_mac)}' \
+              f' --write-snplist ' \
+              f'--out /test/REGENIE_extract'
 
-            if self._association_pack.regenie_snps_file is not None:
-                cmd += f' --extract /test/genetics/{self._association_pack.regenie_snps_file.name}'
-            self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=Path('plink_out.txt'))
+        if self._association_pack.regenie_snps_file is not None:
+            cmd += f' --extract /test/genetics/{self._association_pack.regenie_snps_file.name}'
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=Path('plink_out.txt'))
 
-            with open('plink_out.txt', 'r') as plink_out:
-                for line in plink_out:
-                    found_snp_count = re.search('(\\d+) variants remaining after main filters', line)
-                    if found_snp_count is not None:
-                        self._logger.info(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}\n')
-                plink_out.close()
+        with open('plink_out.txt', 'r') as plink_out:
+            for line in plink_out:
+                found_snp_count = re.search('(\\d+) variants remaining after main filters', line)
+                if found_snp_count is not None:
+                    self._logger.info(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}\n')
+            plink_out.close()
 
         cmd = 'regenie ' \
               '--step 1 ' \
