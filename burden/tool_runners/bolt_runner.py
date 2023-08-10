@@ -99,6 +99,7 @@ class BOLTRunner(ToolRunner):
                 f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
                 f'--verboseStats ' \
                 f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
+                f'--noBgenIDcheck ' \
                 f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz '
 
         if self._association_pack.is_bolt_non_infinite:
