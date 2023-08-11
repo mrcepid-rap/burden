@@ -150,8 +150,8 @@ class BOLTRunner(ToolRunner):
         bolt_log_path = Path(f'{self._output_prefix}.BOLT.log')
         with bolt_log_path.open('r') as bolt_log_file:
             for line in bolt_log_file:
-                if 'samples (Nbgen):' in line:
-                    n_bolt = int(line.strip('samples (Nbgen): '))
+                if 'Total indivs stored in memory:' in line:
+                    n_bolt = int(line.strip('Total indivs stored in memory: N = '))
                     break
             bolt_log_file.close()
         # And use them to calculate a MAC
