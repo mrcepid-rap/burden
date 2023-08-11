@@ -3,7 +3,6 @@ import csv
 import pandas as pd
 
 from pathlib import Path
-from os.path import exists
 from typing import Tuple, List
 
 from burden.tool_runners.tool_runner import ToolRunner
@@ -18,6 +17,14 @@ class REGENIERunner(ToolRunner):
 
     def run_tool(self) -> None:
 
+        # 1. Run step 1 of regenie
+        self._logger.info("Running REGENIE step 1")
+        regenie_step1_log = self._run_regenie_step_one()
+        # Add the step1 files to output, so we can use later if need-be:
+        self._outputs.extend([Path('fit_out_pred.list'),
+                              Path('fit_out_1.loco'),
+                              regenie_step1_log])
+
         # 2. Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
         thread_utility = ThreadUtility(self._association_pack.threads,
@@ -27,19 +34,11 @@ class REGENIERunner(ToolRunner):
 
         for chromosome in get_chromosomes():
             # This makes use of a utility class from AssociationResources since bgen filtering/processing is
-            # IDENTICAL to that done for BOLT. Do not want to duplicate code!
+            # IDENTICAL to that done for BOLT.
             thread_utility.launch_job(class_type=process_bgen_file,
                                       chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
                                       chromosome=chromosome)
         thread_utility.collect_futures()
-
-        # 1. Run step 1 of regenie
-        self._logger.info("Running REGENIE step 1")
-        regenie_step1_log = self._run_regenie_step_one()
-        # Add the step1 files to output, so we can use later if need-be:
-        self._outputs.extend([Path('fit_out_pred.list'),
-                              Path('fit_out_1.loco'),
-                              regenie_step1_log])
 
         # 3. Prep mask files
         self._logger.info("Prepping mask files")
@@ -49,7 +48,7 @@ class REGENIERunner(ToolRunner):
                                        thread_factor=1)
         for chromosome in get_chromosomes():
             for tarball_prefix in self._association_pack.tarball_prefixes:
-                if exists(tarball_prefix + "." + chromosome + ".variants_table.STAAR.tsv"):
+                if Path(f'{tarball_prefix}.{chromosome}.variants_table.STAAR.tsv').exists():
                     thread_utility.launch_job(class_type=self._make_regenie_files,
                                               tarball_prefix=tarball_prefix,
                                               chromosome=chromosome)
@@ -63,7 +62,7 @@ class REGENIERunner(ToolRunner):
                                        thread_factor=1)
         for chromosome in get_chromosomes():
             for tarball_prefix in self._association_pack.tarball_prefixes:
-                if exists(tarball_prefix + "." + chromosome + ".REGENIE.annotationFile.tsv"):
+                if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
                     thread_utility.launch_job(self._run_regenie_step_two,
                                               tarball_prefix=tarball_prefix,
                                               chromosome=chromosome)
@@ -127,11 +126,13 @@ class REGENIERunner(ToolRunner):
 
         # This is used to print the set list file (2) below
         gene_dict = {}
+        prefix = f'{tarball_prefix}.{chromosome}'
 
         # 1. Annotation File
-        with open(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv', 'w', newline='\n') as annotation_file:
-            table_reader = csv.DictReader(open(tarball_prefix + "." + chromosome + ".variants_table.STAAR.tsv", 'r'),
-                                          delimiter='\t')
+        with Path(f'{prefix}.REGENIE.annotationFile.tsv').open('w') as annotation_file,\
+                Path(f'{prefix}.variants_table.STAAR.tsv').open('r') as table_file:
+
+            table_reader = csv.DictReader(table_file, delimiter='\t')
             annotation_writer = csv.DictWriter(annotation_file,
                                                delimiter='\t',
                                                fieldnames=['varID', 'ENST', 'annotation'],
@@ -151,10 +152,9 @@ class REGENIERunner(ToolRunner):
                                                       'pos': variant['pos'],
                                                       'varIDs': [variant['varID']],
                                                       'ENST': variant['ENST']}
-            annotation_file.close()
 
         # 2. Set list file
-        with open(tarball_prefix + "." + chromosome + ".REGENIE.setListFile.tsv", 'w', newline='\n') as set_list_file:
+        with Path(f'{prefix}.REGENIE.setListFile.tsv').open('w') as set_list_file:
             set_list_writer = csv.DictWriter(set_list_file,
                                              delimiter="\t",
                                              fieldnames=['ENST', 'chrom', 'pos', 'varIDs'],
@@ -162,12 +162,10 @@ class REGENIERunner(ToolRunner):
             for gene in sorted(list(gene_dict.values()), key=lambda item: item['pos']):
                 gene['varIDs'] = ','.join(gene['varIDs'])
                 set_list_writer.writerow(gene)
-            set_list_file.close()
 
         # 3. This makes the mask name file. Just needs to be the name of the mask (tarball prefix) used in file #1
-        with open(tarball_prefix + "." + chromosome + ".REGENIE.maskfile.tsv", 'w') as mask_file:
-            mask_file.write(tarball_prefix + '\t' + tarball_prefix + '\n')
-            mask_file.close()
+        with Path(f'{prefix}.REGENIE.maskfile.tsv').open('w') as mask_file:
+            mask_file.write(f'{tarball_prefix}\t{tarball_prefix}\n')
 
     def _run_regenie_step_one(self) -> Path:
 
@@ -224,8 +222,9 @@ class REGENIERunner(ToolRunner):
         # Note – there is some issue with skato (in --vc-tests flag), so I have changed to skato-acat which works...?
         cmd = f'regenie ' \
               f'--step 2 ' \
-              f'--bgen /test/{chromosome}.markers.bgen ' \
-              f'--sample /test/{chromosome}.markers.sample ' \
+              f'--bgen /test/filtered_bgen/{chromosome}.filtered.bgen ' \
+              f'--sample /test/filtered_bgen/{chromosome}.filtered.sample ' \
+              f'--keep /test/SAMPLES_Include.txt ' \
               f'--covarFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
@@ -256,8 +255,9 @@ class REGENIERunner(ToolRunner):
 
         cmd = f'regenie ' \
               f'--step 2 ' \
-              f'--bgen /test/{chromosome}.markers.bgen ' \
-              f'--sample /test/{chromosome}.markers.sample ' \
+              f'--bgen /test/filtered_bgen/{chromosome}.filtered.bgen ' \
+              f'--sample /test/filtered_bgen/{chromosome}.filtered.sample ' \
+              f'--keep /test/SAMPLES_Include.txt ' \
               f'--covarFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \

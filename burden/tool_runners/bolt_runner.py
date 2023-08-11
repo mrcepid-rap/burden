@@ -85,6 +85,7 @@ class BOLTRunner(ToolRunner):
 
         # See the README.md for more information on these parameters
         # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
+        # REMEMBER we do --noBgenIDcheck because the genetic data is filtered to the covariate file, the bgens are NOT
         cmd = f'bolt ' + \
                 f'--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
                 f'--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
