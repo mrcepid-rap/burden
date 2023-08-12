@@ -327,8 +327,8 @@ class REGENIERunner(ToolRunner):
         # Now process the gene table into a useable format:
         # First read in the transcripts file
         transcripts_table = build_transcript_table()
-
-        # Now merge the transcripts table into the gene table to add annotation and the write
+        self._logger.info('HERE1')
+        # Now merge the transcripts table into the gene table to add annotation and then write
         regenie_table = pd.merge(transcripts_table, regenie_table, left_index=True, right_index=True, how="left")
         regenie_gene_out = Path(f'{self._output_prefix}.genes.REGENIE.stats.tsv')
         with regenie_gene_out.open('w') as gene_out:
@@ -349,7 +349,7 @@ class REGENIERunner(ToolRunner):
 
         # And bgzip and tabix...
         outputs.extend(bgzip_and_tabix(regenie_gene_out, sequence_row=2, begin_row=3, end_row=4))
-
+        self._logger.info('HERE2')
         if self._association_pack.run_marker_tests:
 
             variant_index = []
@@ -384,5 +384,5 @@ class REGENIERunner(ToolRunner):
                 regenie_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
 
             outputs.extend(bgzip_and_tabix(regenie_marker_out, sequence_row=2, begin_row=3, end_row=3))
-
+            self._logger.info('HERE3')
         return outputs
