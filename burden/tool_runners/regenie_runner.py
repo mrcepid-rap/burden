@@ -192,7 +192,7 @@ class REGENIERunner(ToolRunner):
             for line in plink_out:
                 found_snp_count = re.search('(\\d+) variants remaining after main filters', line)
                 if found_snp_count is not None:
-                    self._logger.info(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}\n')
+                    self._logger.info(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}')
             plink_out.close()
 
         cmd = 'regenie ' \
@@ -351,7 +351,7 @@ class REGENIERunner(ToolRunner):
             regenie_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
             self._logger.info('TSV')
         # And bgzip and tabix...
-        outputs.extend(bgzip_and_tabix(regenie_gene_out, sequence_row=2, begin_row=3, end_row=4))
+        outputs.extend(bgzip_and_tabix(regenie_gene_out, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
         self._logger.info('HERE2')
         if self._association_pack.run_marker_tests:
 
@@ -386,6 +386,6 @@ class REGENIERunner(ToolRunner):
 
                 regenie_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
 
-            outputs.extend(bgzip_and_tabix(regenie_marker_out, sequence_row=2, begin_row=3, end_row=3))
+            outputs.extend(bgzip_and_tabix(regenie_marker_out, skip_row=1, sequence_row=2, begin_row=3, end_row=3))
             self._logger.info('HERE3')
         return outputs
