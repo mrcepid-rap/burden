@@ -330,23 +330,26 @@ class REGENIERunner(ToolRunner):
         self._logger.info('HERE1')
         # Now merge the transcripts table into the gene table to add annotation and then write
         regenie_table = pd.merge(transcripts_table, regenie_table, left_index=True, right_index=True, how="left")
+        self._logger.info('MERGE')
         regenie_gene_out = Path(f'{self._output_prefix}.genes.REGENIE.stats.tsv')
         with regenie_gene_out.open('w') as gene_out:
 
             # Reset the index and make sure chrom/start/end are first (for indexing)
             regenie_table.reset_index(inplace=True)
+            self._logger.info('INDEX')
             columns = regenie_table.columns.tolist()
+            self._logger.info('COLS')
             # ENST should ALWAYS be in position 0, but move it to position 4 and slice the array so we don't have two
             # copies:
             columns.insert(4, 'ENST')
             columns = columns[1:]
             regenie_table = regenie_table[columns]
-
+            self._logger.info('ENST')
             # Sort just in case
             regenie_table = regenie_table.sort_values(by=['chrom', 'start', 'end'])
-
+            self._logger.info('SORT')
             regenie_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
-
+            self._logger.info('TSV')
         # And bgzip and tabix...
         outputs.extend(bgzip_and_tabix(regenie_gene_out, sequence_row=2, begin_row=3, end_row=4))
         self._logger.info('HERE2')
