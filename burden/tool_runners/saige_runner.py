@@ -109,7 +109,7 @@ class SAIGERunner(ToolRunner):
         else:
             all_covariates = [f'PC{PC}' for PC in range(1, 11)] + ['age', 'age_squared', 'wes_batch']
             if self._association_pack.sex == 2:
-                all_covariates.extend('sex')
+                all_covariates.append('sex')
             cat_covars = ['wes_batch']
 
         all_covariates.extend(self._association_pack.found_quantitative_covariates)
@@ -117,9 +117,9 @@ class SAIGERunner(ToolRunner):
         cat_covars.extend(self._association_pack.found_categorical_covariates)
 
         if len(all_covariates) > 0:
-            cmd = cmd + f'--covarColList=' + ','.join(all_covariates)
+            cmd = cmd + f'--covarColList=' + ','.join(all_covariates) + ' '
         if len(cat_covars) > 0:
-            cmd = cmd + f'--qCovarColList=' + ','.join(cat_covars)
+            cmd = cmd + f'--qCovarColList=' + ','.join(cat_covars) + ' '
 
         saige_log_file = Path(f'{self._output_prefix}.SAIGE_step1.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=saige_log_file, print_cmd=True)
