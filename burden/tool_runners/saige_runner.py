@@ -191,9 +191,9 @@ class SAIGERunner(ToolRunner):
         process_bgen_file(self._association_pack.bgen_dict[chromosome], chromosome)
 
         cmd = 'step2_SPAtests.R ' \
-              f'--bgenFile=/test/{chromosome}.markers.bgen ' \
-              f'--bgenFileIndex=/test/{chromosome}.markers.bgen.bgi ' \
-              f'--sampleFile=/test/{chromosome}.markers.sample ' \
+              f'--bgenFile=/test/filtered_bgen/{chromosome}.markers.bgen ' \
+              f'--bgenFileIndex=/test/filtered_bgen/{chromosome}.markers.bgen.bgi ' \
+              f'--sampleFile=/test/filtered_bgen/{chromosome}.markers.sample ' \
               f'--GMMATmodelFile=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda ' \
               '--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
               '--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
