@@ -47,7 +47,7 @@ class SAIGERunner(ToolRunner):
                 with current_log.open('r') as current_log_reader:
                     for line in current_log_reader:
                         saige_step2_genes_writer.write(line)
-        completed_gene_tables.append(saige_step2_gene_log)
+        self._outputs.append(saige_step2_gene_log)
 
         # 4. Run per-marker tests, if requested
         completed_marker_chromosomes = []
