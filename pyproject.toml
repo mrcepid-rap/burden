@@ -23,7 +23,3 @@ statsmodels = "0.13.2"
 zstd = "1.5.5.1"
 toml = "^0.10.2"
 pytest = "^7.4.0"
-
-[tool.poetry.dependencies.general_utilities]
-git = "https://github.com/mrcepid-rap/general_utilities.git"
-tag = "v1.2.1"
