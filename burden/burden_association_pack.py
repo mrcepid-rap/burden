@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 import dxpy
 
 from general_utilities.import_utils.import_lib import BGENInformation
-from runassociationtesting.association_pack import AssociationPack, ProgramArgs
+from general_utilities.import_utils.module_loader.association_pack import AssociationPack, ProgramArgs
 
 
 @dataclass
@@ -26,6 +26,7 @@ class BurdenProgramArgs(ProgramArgs):
     def _check_opts(self):
         pass
 
+
 class BurdenAssociationPack(AssociationPack):
 
     def __init__(self, association_pack: AssociationPack, tarball_prefixes: List[str],
@@ -33,8 +34,9 @@ class BurdenAssociationPack(AssociationPack):
                  regenie_snps_file: Optional[Path]):
 
         super().__init__(association_pack.is_binary, association_pack.sex, association_pack.threads,
-                         association_pack.pheno_names, association_pack.found_quantitative_covariates,
-                         association_pack.found_categorical_covariates, association_pack.cmd_executor)
+                         association_pack.pheno_names, association_pack.ignore_base_covariates,
+                         association_pack.found_quantitative_covariates, association_pack.found_categorical_covariates,
+                         association_pack.cmd_executor)
 
         self.tarball_prefixes = tarball_prefixes
         self.bgen_dict = bgen_dict
