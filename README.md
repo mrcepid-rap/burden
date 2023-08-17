@@ -51,6 +51,11 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v1.1.5
+  * Large number of general changes affecting all runassociationtesting modules. Please see the [RunAssociationTesting README](https://github.com/mrcepid-rap/mrcepid-runassociationtesting/blob/main/Readme.md) for more information
+  * Users should see an ~1h runtime speedup due to how filtered WES bgen files are downloaded / processed
+
+
 * v1.1.4
   * Implemented the CommandExecutor class
 
