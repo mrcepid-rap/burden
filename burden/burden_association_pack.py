@@ -23,6 +23,14 @@ class BurdenProgramArgs(ProgramArgs):
     bolt_non_infinite: bool
     regenie_smaller_snps: Optional[dxpy.DXFile]
 
+    def __post_init__(self):
+        """@dataclass automatically calls this method after calling its own __init__().
+
+        This is required in the subclass because dataclasses do not call the __init__ of their super o.0
+
+        """
+        self._check_opts()
+
     def _check_opts(self):
         pass
 

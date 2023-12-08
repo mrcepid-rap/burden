@@ -9,6 +9,7 @@ from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.association_resources import get_chromosomes, build_transcript_table, \
     define_field_names_from_pandas, bgzip_and_tabix
 from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 
 class BOLTRunner(ToolRunner):
@@ -123,13 +124,15 @@ class BOLTRunner(ToolRunner):
                 cmd += f'--covarCol={covar} '
         bolt_log = Path(f'{self._output_prefix}.BOLT.log')
 
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log, livestream_out=True)
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
 
     # This parses the BOLT output file into a usable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:
 
         # First read in the BOLT stats file:
         bolt_table = pd.read_csv(f'{self._output_prefix}.bgen.stats.gz', sep="\t")
+        plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
+        plot_dir.mkdir()
 
         # Split the main table into marker and gene tables and remove the larger table
         bolt_table_gene = bolt_table[bolt_table['SNP'].str.contains('ENST')]
@@ -167,9 +170,29 @@ class BOLTRunner(ToolRunner):
             bolt_table_gene = bolt_table_gene.sort_values(by=['chrom', 'start', 'end'])
             bolt_table_gene.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
 
+        for mask in bolt_table_gene['MASK'].value_counts().index:
+
+            for maf in bolt_table_gene['MAF'].value_counts().index:
+                # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
+                # index and I don't currently have a way to pass the index through to the Plotter methods...
+                manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
+                                                     bolt_table_gene.query(f'MASK == "{mask}" & MAF == "{maf}"'),
+                                                     chrom_column='chrom', pos_column='start',
+                                                     alt_column=None,
+                                                     id_column='ENST',
+                                                     p_column='P_BOLT_LMM' if self._association_pack.is_bolt_non_infinite else 'P_BOLT_LMM_INF',
+                                                     csq_column='MASK',
+                                                     maf_column='A1FREQ', gene_symbol_column='SYMBOL',
+                                                     clumping_distance=1,
+                                                     maf_cutoff=30 / (n_bolt*2),
+                                                     sig_threshold=1E-6)
+
+                manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.BOLT.stats.png')
+
         # Define an output(s) array to return
         outputs = [Path(f'{self._output_prefix}.stats.gz'),
-                   bolt_log_path]
+                   bolt_log_path,
+                   plot_dir]
 
         # And bgzip and tabix...
         outputs.extend(bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))

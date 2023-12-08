@@ -8,8 +8,9 @@ from typing import Tuple, List
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.association_resources import get_chromosomes, define_covariate_string, \
-    define_field_names_from_tarball_prefix, build_transcript_table, bgzip_and_tabix, get_sample_count
+    define_field_names_from_tarball_prefix, build_transcript_table, bgzip_and_tabix, get_include_sample_ids
 from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 
 # TODO: Implement multi-phenotype testing for REGENIE
@@ -169,15 +170,11 @@ class REGENIERunner(ToolRunner):
 
     def _run_regenie_step_one(self) -> Path:
 
-        # Need to define separate min/max MAC files for REGENIE as it defines them slightly differently from BOLT:
-        # First we need the number of individuals that are being processed:
-        n_samples = get_sample_count()
-
         # And generate a SNP list for the --extract parameter of REGENIE, while considering SNPs from
         # the regenie_smaller_snps input parameter (if provided). plink2 order of operations:
         # 1. Select variants from --extract (if present)
         # 2. THEN filter based on max/min AC (mac/max-mac)
-        max_mac = (n_samples * 2) - 100
+        max_mac = (self._sample_count * 2) - 100
         cmd = f'plink2 --bfile /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
               f'--min-ac 100 ' \
               f'--max-ac {str(max_mac)}' \
@@ -320,8 +317,9 @@ class REGENIERunner(ToolRunner):
                                  completed_marker_chromosomes: List[str]) -> List[Path]:
 
         # Declare a list for storing outputs
-        outputs = []
-
+        plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
+        plot_dir.mkdir()
+        outputs = [plot_dir]
         regenie_table = pd.concat(completed_gene_tables)
 
         # Now process the gene table into a useable format:
@@ -347,11 +345,29 @@ class REGENIERunner(ToolRunner):
             # Sort just in case
             regenie_table = regenie_table.sort_values(by=['chrom', 'start', 'end'])
 
+            for mask in regenie_table['MASK'].value_counts().index:
+
+                for maf in regenie_table['MAF'].value_counts().index:
+                    # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
+                    # index and I don't currently have a way to pass the index through to the Plotter methods...
+                    manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
+                                                         regenie_table.query(f'MASK == "{mask}" & MAF == "{maf}"'),
+                                                         chrom_column='chrom', pos_column='start',
+                                                         alt_column=None,
+                                                         id_column='SYMBOL', p_column='PVALUE',
+                                                         csq_column='MASK',
+                                                         maf_column='A1FREQ', gene_symbol_column='SYMBOL',
+                                                         clumping_distance=1,
+                                                         maf_cutoff=30 / (regenie_table['N'].max() * 2),
+                                                         sig_threshold=1E-6)
+
+                    manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.REGENIE.stats.png')
+
             # Write to disk
-            regenie_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
+            regenie_table.to_csv(path_or_buf=gene_out, index=True, sep="\t", na_rep='NA')
 
         # And bgzip and tabix...
-        outputs.extend(bgzip_and_tabix(regenie_gene_out, comment_char='c', sequence_row=1, begin_row=2, end_row=3))
+        outputs.extend(bgzip_and_tabix(regenie_gene_out, comment_char='c', sequence_row=2, begin_row=3, end_row=4))
 
         if self._association_pack.run_marker_tests:
 
