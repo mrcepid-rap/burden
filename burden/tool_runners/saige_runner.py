@@ -8,6 +8,7 @@ from general_utilities.association_resources import get_chromosomes, define_fiel
     build_transcript_table, bgzip_and_tabix
 from general_utilities.import_utils.import_lib import process_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
+from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 
 class SAIGERunner(ToolRunner):
@@ -224,7 +225,9 @@ class SAIGERunner(ToolRunner):
     def _annotate_saige_output(self, completed_gene_tables: list, completed_marker_chromosomes: list) -> List[Path]:
 
         # Create an output array
-        outputs = []
+        plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
+        plot_dir.mkdir()
+        outputs = [plot_dir]
 
         saige_table = pd.concat(completed_gene_tables)
 
@@ -241,6 +244,26 @@ class SAIGERunner(ToolRunner):
             saige_table = saige_table.sort_values(by=['chrom', 'start', 'end'])
 
             saige_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
+
+            # Make Manhattan plots
+            for mask in saige_table['MASK'].value_counts().index:
+
+                for maf in saige_table['MAF'].value_counts().index:
+                    # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
+                    # index and I don't currently have a way to pass the index through to the Plotter methods...
+                    manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
+                                                         saige_table.query(f'MASK == "{mask}" & MAF == "{maf}"'),
+                                                         chrom_column='chrom', pos_column='start',
+                                                         alt_column=None,
+                                                         id_column='ENST',
+                                                         p_column='Pvalue',
+                                                         csq_column='MASK',
+                                                         maf_column='MAC', gene_symbol_column='SYMBOL',
+                                                         clumping_distance=1,
+                                                         maf_cutoff=30,
+                                                         sig_threshold=1E-6)
+
+                    manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.SAIGE.png')
 
         # And bgzip and tabix...
         outputs.extend(bgzip_and_tabix(saige_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))

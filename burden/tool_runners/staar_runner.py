@@ -1,10 +1,13 @@
 from pathlib import Path
 
+import pandas as pd
+
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.association_resources import get_chromosomes
 from general_utilities.linear_model.proccess_model_output import process_staar_outputs
 from general_utilities.linear_model.staar_model import staar_null, staar_genes
+from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 
 class STAARRunner(ToolRunner):
@@ -47,3 +50,29 @@ class STAARRunner(ToolRunner):
 
         # 4. Annotate and print final STAAR output
         self._outputs.extend(process_staar_outputs(completed_staar_files, self._output_prefix))
+
+        # 5. Make Manhattan plots
+        plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
+        plot_dir.mkdir()
+        self._outputs.append(plot_dir)
+
+        staar_table_gene = pd.read_csv(f'{self._output_prefix}.genes.STAAR.stats.tsv', sep='\t')
+
+        for mask in staar_table_gene['MASK'].value_counts().index:
+
+            for maf in staar_table_gene['MAF'].value_counts().index:
+                # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
+                # index and I don't currently have a way to pass the index through to the Plotter methods...
+                manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
+                                                     staar_table_gene.query(f'MASK == "{mask}" & MAF == "{maf}"'),
+                                                     chrom_column='chrom', pos_column='start',
+                                                     alt_column=None,
+                                                     id_column='ENST',
+                                                     p_column='staar.O.p',
+                                                     csq_column='MASK',
+                                                     maf_column='cMAC', gene_symbol_column='SYMBOL',
+                                                     clumping_distance=1,
+                                                     maf_cutoff=30,
+                                                     sig_threshold=1E-6)
+
+                manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.STAAR.png')

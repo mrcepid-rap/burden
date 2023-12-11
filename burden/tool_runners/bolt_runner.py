@@ -170,24 +170,25 @@ class BOLTRunner(ToolRunner):
             bolt_table_gene = bolt_table_gene.sort_values(by=['chrom', 'start', 'end'])
             bolt_table_gene.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
 
-        for mask in bolt_table_gene['MASK'].value_counts().index:
+            # Make Manhattan plots
+            for mask in bolt_table_gene['MASK'].value_counts().index:
 
-            for maf in bolt_table_gene['MAF'].value_counts().index:
-                # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
-                # index and I don't currently have a way to pass the index through to the Plotter methods...
-                manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
-                                                     bolt_table_gene.query(f'MASK == "{mask}" & MAF == "{maf}"'),
-                                                     chrom_column='chrom', pos_column='start',
-                                                     alt_column=None,
-                                                     id_column='ENST',
-                                                     p_column='P_BOLT_LMM' if self._association_pack.is_bolt_non_infinite else 'P_BOLT_LMM_INF',
-                                                     csq_column='MASK',
-                                                     maf_column='A1FREQ', gene_symbol_column='SYMBOL',
-                                                     clumping_distance=1,
-                                                     maf_cutoff=30 / (n_bolt*2),
-                                                     sig_threshold=1E-6)
+                for maf in bolt_table_gene['MAF'].value_counts().index:
+                    # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
+                    # index and I don't currently have a way to pass the index through to the Plotter methods...
+                    manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
+                                                         bolt_table_gene.query(f'MASK == "{mask}" & MAF == "{maf}"'),
+                                                         chrom_column='chrom', pos_column='start',
+                                                         alt_column=None,
+                                                         id_column='ENST',
+                                                         p_column='P_BOLT_LMM' if self._association_pack.is_bolt_non_infinite else 'P_BOLT_LMM_INF',
+                                                         csq_column='MASK',
+                                                         maf_column='A1FREQ', gene_symbol_column='SYMBOL',
+                                                         clumping_distance=1,
+                                                         maf_cutoff=30 / (n_bolt*2),
+                                                         sig_threshold=1E-6)
 
-                manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.BOLT.stats.png')
+                    manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.BOLT.png')
 
         # Define an output(s) array to return
         outputs = [Path(f'{self._output_prefix}.stats.gz'),

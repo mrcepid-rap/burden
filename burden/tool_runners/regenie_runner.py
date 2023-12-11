@@ -361,7 +361,7 @@ class REGENIERunner(ToolRunner):
                                                          maf_cutoff=30 / (regenie_table['N'].max() * 2),
                                                          sig_threshold=1E-6)
 
-                    manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.REGENIE.stats.png')
+                    manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.REGENIE.png')
 
             # Write to disk
             regenie_table.to_csv(path_or_buf=gene_out, index=True, sep="\t", na_rep='NA')
