@@ -4,8 +4,8 @@ from typing import List, Tuple
 from pathlib import Path
 
 from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.association_resources import get_chromosomes, define_field_names_from_tarball_prefix, \
-    build_transcript_table, bgzip_and_tabix
+from general_utilities.association_resources import get_chromosomes, define_field_names_from_tarball_prefix,\
+    bgzip_and_tabix
 from general_utilities.import_utils.import_lib import process_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
@@ -231,12 +231,8 @@ class SAIGERunner(ToolRunner):
 
         saige_table = pd.concat(completed_gene_tables)
 
-        # Now process the gene table into a useable format:
-        # First read in the transcripts file
-        transcripts_table = build_transcript_table()
-
         # Now merge the transcripts table into the gene table to add annotation and write
-        saige_table = pd.merge(transcripts_table, saige_table, on='ENST', how="left")
+        saige_table = pd.merge(self._transcripts_table, saige_table, on='ENST', how="left")
         saige_path = Path(f'{self._output_prefix}.genes.SAIGE.stats.tsv')
         with saige_path.open('w') as gene_out:
 

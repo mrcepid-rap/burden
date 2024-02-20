@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List
 
 from burden.burden_ingester import BurdenAssociationPack
-from general_utilities.association_resources import get_include_sample_ids
+from general_utilities.association_resources import get_include_sample_ids, build_transcript_table
 from general_utilities.mrc_logger import MRCLogger
 
 
@@ -16,6 +16,7 @@ class ToolRunner(ABC):
         self._output_prefix = output_prefix
         self._outputs = []
         self._sample_count = len(get_include_sample_ids())
+        self._transcripts_table = build_transcript_table()
 
     def get_outputs(self) -> List[Path]:
         return self._outputs
