@@ -139,10 +139,6 @@ class BOLTRunner(ToolRunner):
         bolt_table_marker = bolt_table[bolt_table['SNP'].str.contains(':')]
         del bolt_table
 
-        # Now process the gene table into a useable format:
-        # First read in the transcripts file
-        transcripts_table = build_transcript_table()
-
         # Test what columns we have in the 'SNP' field so we can name them...
         field_names = define_field_names_from_pandas(bolt_table_gene.iloc[0])
         bolt_table_gene[field_names] = bolt_table_gene['SNP'].str.split("-", expand=True)
@@ -162,7 +158,7 @@ class BOLTRunner(ToolRunner):
         bolt_table_gene['AC'] = bolt_table_gene['AC'].round()
 
         # Now merge the transcripts table into the gene table to add annotation and the write
-        bolt_table_gene = pd.merge(transcripts_table, bolt_table_gene, on='ENST', how="left")
+        bolt_table_gene = pd.merge(self._transcripts_table, bolt_table_gene, on='ENST', how="left")
 
         stats_path = Path(f'{self._output_prefix}.genes.BOLT.stats.tsv')
         with stats_path.open('w') as gene_out:
