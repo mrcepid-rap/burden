@@ -1,10 +1,14 @@
 import csv
+import pandas as pd
+from pathlib import Path
 
 from burden.tool_runners.tool_runner import ToolRunner
+from general_utilities.association_resources import bgzip_and_tabix
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.linear_model import linear_model
 from general_utilities.linear_model.linear_model import LinearModelResult
 from general_utilities.linear_model.proccess_model_output import process_linear_model_outputs
+from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 
 class GLMRunner(ToolRunner):
@@ -62,18 +66,46 @@ class GLMRunner(ToolRunner):
         if self._association_pack.is_binary:
             fieldnames.extend(['n_noncar_affected', 'n_noncar_unaffected', 'n_car_affected', 'n_car_unaffected'])
 
-        lm_stats_file = open(self._output_prefix + '.lm_stats.tmp', 'w')
-        lm_stats_writer = csv.DictWriter(lm_stats_file,
-                                         delimiter="\t",
-                                         fieldnames=fieldnames,
-                                         extrasaction='ignore')
+        lm_stats_path = Path(f'{self._output_prefix}.lm_stats.tmp')
+        with lm_stats_path.open('w') as lm_stats_file:
+            lm_stats_csv = csv.DictWriter(lm_stats_file,
+                                          delimiter="\t",
+                                          fieldnames=fieldnames,
+                                          extrasaction='ignore')
 
-        lm_stats_writer.writeheader()
-        for result in thread_utility:
-            finished_gene: LinearModelResult = result
-            lm_stats_writer.writerow(finished_gene.todict())
-        lm_stats_file.close()
+            lm_stats_csv.writeheader()
+            for result in thread_utility:
+                finished_gene: LinearModelResult = result
+                lm_stats_csv.writerow(finished_gene.todict())
 
-        # 5. Annotate unformatted results and print final outputs
+        # 4. Annotate unformatted results and print final tabular outputs
         self._logger.info("Annotating Linear Model results")
         self._outputs.extend(process_linear_model_outputs(self._output_prefix))
+
+        # 5. Generate Manhattan Plots
+        plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
+        plot_dir.mkdir()
+        self._outputs.extend(plot_dir)
+        glm_table = pd.read_csv(Path(f'{self._output_prefix}.genes.glm.stats.tsv.gz'), sep='\t', )
+
+        for mask in glm_table['MASK'].value_counts().index:
+
+            for maf in glm_table['MAF'].value_counts().index:
+                # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
+                # index and I don't currently have a way to pass the index through to the Plotter methods...
+                manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
+                                                     glm_table.query(f'MASK == "{mask}" & MAF == "{maf}"'),
+                                                     chrom_column='chrom', pos_column='start',
+                                                     alt_column=None,
+                                                     id_column='SYMBOL', p_column='p_val_init',
+                                                     csq_column='MASK',
+                                                     maf_column='cMAC', gene_symbol_column='SYMBOL',
+                                                     clumping_distance=1,
+                                                     maf_cutoff=30,
+                                                     sig_threshold=1E-6)
+
+                manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.GLM.png')
+
+
+
+
