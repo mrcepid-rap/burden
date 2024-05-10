@@ -53,7 +53,7 @@ class LoadModule(ModuleLoader):
                                        "output for burden tests where tool = saige, regenie, or bolt.",
                                   dest='run_marker_tests', action='store_true')
         self._parser.add_argument('--bgen_index',
-                                  help="list of bgen files and associated index/sample/annotation",
+                                  help="list of WES-derived bgen files and associated index/sample/annotation",
                                   type=self.dxfile_input, dest='bgen_index', required=False,
                                   metavar=example_dxfile, default='None')
         self._parser.add_argument('--array_bed_file',
