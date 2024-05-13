@@ -61,11 +61,45 @@ class BOLTRunner(ToolRunner):
     # This handles processing of mask and whole-exome bgen files for input into BOLT
     def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> None:
 
+        # plink2 has implemented a 'fix' for chrX that does not allow samples without sex. This code adds sex back to
+        # the bgen sample file so that plink2 will process the data properly. This is the only way I know how to rename
+        # variant IDs within a bgen file.
+        with Path('phenotypes_covariates.formatted.txt').open('r') as pheno_covar_file, \
+                Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').open('r') as bgen_sample, \
+                Path(f'{tarball_prefix}.{chromosome}.BOLT.fix.sample').open('w') as bgen_fix_sample:
+
+            pheno_reader = csv.DictReader(pheno_covar_file, delimiter=' ')
+            sample_reader = csv.DictReader(bgen_sample, delimiter=' ')
+            sample_writer = csv.DictWriter(bgen_fix_sample, delimiter=' ', fieldnames=sample_reader.fieldnames)
+            sample_writer.writeheader()
+
+            # Read in sex information
+            sex = {}
+            for sample in pheno_reader:
+                samp_sex = 2 if sample['sex'] == '0' else 1
+                sex[sample['IID']] = samp_sex
+
+            # Write sex to 'fix' sample file
+            for sample in sample_reader:
+                if sample['ID_1'] == '0':
+                    sample_writer.writerow(sample)
+                else:
+                    # All samples will not be in the resulting phenofile. This is OK as we don't use these samples
+                    # when not testing against their phenotype
+                    if sample['ID_1'] in sex:
+                        sample['sex'] = sex[sample['ID_1']]
+                        sample_writer.writerow(sample)
+                    else:
+                        sample['sex'] = '1'
+                        sample_writer.writerow(sample)
+
         # Do the mask first...
         # We need to modify the bgen file to have an alternate name for IDing masks
         cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-last\' ' \
-                    f'--out /test/{tarball_prefix}.{chromosome} ' \
-                    f'--make-just-pvar'
+              f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
+              f'--out /test/{tarball_prefix}.{chromosome} ' \
+              f'--make-just-pvar ' \
+              f'--split-par hg38'
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
         with open(f'{tarball_prefix}.{chromosome}.fixer', 'w') as fix_writer:
@@ -75,10 +109,11 @@ class BOLTRunner(ToolRunner):
             fix_writer.close()
 
         cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-last\' ' \
-              f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.sample ' \
+              f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
               f'--update-name /test/{tarball_prefix}.{chromosome}.fixer ' \
               f'--export bgen-1.2 \'bits=\'8 ' \
-              f'--out /test/{tarball_prefix}.{chromosome} '
+              f'--split-par hg38 ' \
+              f'--out /test/{tarball_prefix}.{chromosome}'
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
     # Run rare variant association testing using BOLT
