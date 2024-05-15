@@ -128,7 +128,6 @@ class BOLTRunner(ToolRunner):
         cmd = f'bolt ' + \
                 f'--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
                 f'--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
-                f'--remove=/test/SAMPLES_Remove.txt ' \
                 f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
                 f'--phenoCol={self._association_pack.pheno_names[0]} ' \
                 f'--covarFile=/test/phenotypes_covariates.formatted.txt ' \
