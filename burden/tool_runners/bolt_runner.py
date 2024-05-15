@@ -96,9 +96,9 @@ class BOLTRunner(ToolRunner):
         # Do the mask first...
         # We need to modify the bgen file to have an alternate name for IDing masks
         cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-last\' ' \
-              f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
               f'--out /test/{tarball_prefix}.{chromosome} ' \
               f'--make-just-pvar ' \
+              f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
               f'--split-par hg38'
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
@@ -113,8 +113,11 @@ class BOLTRunner(ToolRunner):
               f'--update-name /test/{tarball_prefix}.{chromosome}.fixer ' \
               f'--export bgen-1.2 \'bits=\'8 ' \
               f'--split-par hg38 ' \
-              f'--out /test/{tarball_prefix}.{chromosome}'
+              f'--out /test/{tarball_prefix}.{chromosome} '
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
+
+        # Make sure the original sample file is being used, otherwise BOLT complains
+        Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').replace(Path(f'{tarball_prefix}.{chromosome}.sample'))
 
     # Run rare variant association testing using BOLT
     def _run_bolt(self) -> None:
