@@ -9,11 +9,11 @@ For more information about how to run or modify it, see https://github.com/mrcep
   * [Changelog](#changelog)
   * [Background](#background)
     + [Burden Tools Implemented](#burden-tools-implemented)
-      - [1. [BOLT-LMM](https://alkesgroup.broadinstitute.org/BOLT-LMM/BOLT-LMM_manual.html)](#1-bolt-lmmhttpsalkesgroupbroadinstituteorgbolt-lmmbolt-lmm_manualhtml)
-      - [2. [SAIGE-GENE+](https://github.com/saigegit/SAIGE)](#2-saige-genehttpsgithubcomsaigegitsaige)
-      - [3. [STAAR](https://github.com/xihaoli/STAAR)](#3-staarhttpsgithubcomxihaolistaar)
-      - [4. [REGENIE](https://rgcgithub.github.io/regenie/)](#4-regeniehttpsrgcgithubgithubioregenie)
-      - [5. Generalised Linear Models (GLMs)](#5-generalised-linear-models-glms)
+      - 1. [BOLT-LMM](#1-bolt-lmm)
+      - 2. [SAIGE-GENE+](#2-saige-gene)
+      - 3. [STAAR](#3-staar)
+      - 4. [REGENIE](#4-regenie)
+      - 5. [Generalised Linear Models (GLMs)](#5-generalised-linear-models-glms)
 - [Methodology](#methodology)
     + [BOLT](#bolt)
     + [SAIGE-GENE+](#saige-gene)
@@ -50,6 +50,12 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 ```
 
 ### Changelog
+
+* v1.1.7
+  * Small bug fixes:
+    * Removed method option to reflect changes in ingest_tarballs method from [general_utilities](https://github.com/mrcepid-rap/general_utilities) by @ejgardner-insmed in https://github.com/mrcepid-rap/burden/pull/9
+    * Fixed an issue with the updated version of plink2 causing issues with chromosomeX by @ejgardner-insmed in https://github.com/mrcepid-rap/burden/pull/10
+      * This was accomplished by encoding all individuals as females to avoid hemizygous calls. **PLEASE CHECK CHRX RESULTS FOR CONSISTENCY**
 
 * v1.1.6
   * Added Manhattan plotting to all burden tools
