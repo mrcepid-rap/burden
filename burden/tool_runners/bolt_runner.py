@@ -63,35 +63,23 @@ class BOLTRunner(ToolRunner):
 
         # plink2 has implemented a 'fix' for chrX that does not allow samples without sex. This code adds sex back to
         # the bgen sample file so that plink2 will process the data properly. This is the only way I know how to rename
-        # variant IDs within a bgen file.
-        with Path('phenotypes_covariates.formatted.txt').open('r') as pheno_covar_file, \
-                Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').open('r') as bgen_sample, \
+        # variant IDs within a bgen file. For future devs:
+        # I code every individual as female. This is because BOLT cannot handle plink2's default coding of ploidy
+        # for males as 1. I recognise this is a hack, but for the purposes of this pipeline it is acceptable.
+        with Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').open('r') as bgen_sample,\
                 Path(f'{tarball_prefix}.{chromosome}.BOLT.fix.sample').open('w') as bgen_fix_sample:
 
-            pheno_reader = csv.DictReader(pheno_covar_file, delimiter=' ')
             sample_reader = csv.DictReader(bgen_sample, delimiter=' ')
             sample_writer = csv.DictWriter(bgen_fix_sample, delimiter=' ', fieldnames=sample_reader.fieldnames)
             sample_writer.writeheader()
-
-            # Read in sex information
-            sex = {}
-            for sample in pheno_reader:
-                samp_sex = 2 if sample['sex'] == '0' else 1
-                sex[sample['IID']] = samp_sex
 
             # Write sex to 'fix' sample file
             for sample in sample_reader:
                 if sample['ID_1'] == '0':
                     sample_writer.writerow(sample)
                 else:
-                    # All samples will not be in the resulting phenofile. This is OK as we don't use these samples
-                    # when not testing against their phenotype
-                    if sample['ID_1'] in sex:
-                        sample['sex'] = sex[sample['ID_1']]
-                        sample_writer.writerow(sample)
-                    else:
-                        sample['sex'] = '1'
-                        sample_writer.writerow(sample)
+                    sample['sex'] = '2'
+                    sample_writer.writerow(sample)
 
         # Do the mask first...
         # We need to modify the bgen file to have an alternate name for IDing masks
