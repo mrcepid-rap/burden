@@ -1,1 +1,10 @@
 /.talismanrc
+/test
+.DS_Store
+.idea/
+all_chroms.log
+dx_run.log
+poetry.lock
+test/test_data
+burden/__pycache__/
+burden/tool_runners/__pycache__/

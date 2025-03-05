@@ -16,23 +16,27 @@ class SAIGERunner(ToolRunner):
     def run_tool(self) -> None:
 
         # 1. Run SAIGE step one without parallelisation
-        self._logger.info("Running SAIGE step 1...")
-        self._outputs.append(self._saige_step_one())
+        # self._logger.info("Running SAIGE step 1...")
+        # self._outputs.append(self._saige_step_one())
 
         # 2. Run SAIGE step two WITH parallelisation by chromosome
         self._logger.info("Running SAIGE step 2...")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A SAIGE thread failed', 
-                                       incrementor=10, 
+                                       error_message='A SAIGE thread failed',
+                                       incrementor=10,
                                        thread_factor=1)
-        
-        for chromosome in get_chromosomes():
-            for tarball_prefix in self._association_pack.tarball_prefixes:
-                if Path(tarball_prefix + "." + chromosome + ".SAIGE.bcf").exists():
-                    self._prep_group_file(tarball_prefix, chromosome)
-                    thread_utility.launch_job(class_type=self._saige_step_two,
-                                              tarball_prefix=tarball_prefix,
-                                              chromosome=chromosome)
+
+        for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
+            if not any(Path(tarball_prefix + "." + chromosome + ".BOLT.bgen").exists() for tarball_prefix in
+                       self._association_pack.tarball_prefixes):
+                self._logger.error(f'No SAIGE BGEN files found for chromosome {chromosome}')
+            else:
+                for tarball_prefix in self._association_pack.tarball_prefixes:
+                    if Path(tarball_prefix + "." + chromosome + ".SAIGE.bcf").exists():
+                        self._prep_group_file(tarball_prefix, chromosome)
+                        thread_utility.launch_job(class_type=self._saige_step_two,
+                                                  tarball_prefix=tarball_prefix,
+                                                  chromosome=chromosome)
 
         # 3. Gather preliminary results
         self._logger.info("Gathering SAIGE mask-based results...")
@@ -59,7 +63,7 @@ class SAIGERunner(ToolRunner):
                                            incrementor=1,
                                            thread_factor=4)
 
-            for chromosome in get_chromosomes():
+            for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
                 thread_utility.launch_job(class_type=self._saige_marker_run,
                                           chromosome=chromosome)
                 completed_marker_chromosomes.append(chromosome)
@@ -133,7 +137,7 @@ class SAIGERunner(ToolRunner):
     def _prep_group_file(tarball_prefix: str, chromosome: str) -> None:
 
         with open(tarball_prefix + '.' + chromosome + '.SAIGE.groupFile.txt', 'r') as group_file:
-            modified_group = open(tarball_prefix + '.' + chromosome + '.SAIGE_v1.0.groupFile.txt', 'w')
+            modified_group = open(tarball_prefix + '.' + chromosome + '.SAIGE.groupFile.txt', 'w')
             for line in group_file:
                 data = line.rstrip().split('\t')
                 mod_data = [data[0], 'var']
@@ -165,14 +169,15 @@ class SAIGERunner(ToolRunner):
         
         # See the README.md for more information on these parameters
         cmd = f'step2_SPAtests.R ' \
-              f'--vcfFile=/test/{tarball_prefix}.{chromosome}.saige_input.bcf ' \
-              f'--vcfField=GT ' \
+              f'--bgenFile=/test/{tarball_prefix}.{chromosome}.BOLT.bgen ' \
+              f'--bgenFileIndex=/test/{tarball_prefix}.{chromosome}.BOLT.bgen.bgi ' \
+              f'--sampleFile=/test/SAMPLES_Include.txt ' \
               f'--GMMATmodelFile=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda ' \
               f'--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
               f'--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
               f'--LOCO=FALSE ' \
               f'--SAIGEOutputFile=/test/{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt ' \
-              f'--groupFile=/test/{tarball_prefix}.{chromosome}.SAIGE_v1.0.groupFile.txt ' \
+              f'--groupFile=/test/{tarball_prefix}.{chromosome}.SAIGE.groupFile.txt ' \
               f'--is_output_moreDetails=TRUE ' \
               f'--maxMAF_in_groupTest=0.5 ' \
               f'--maxMissing=1 ' \
