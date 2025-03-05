@@ -39,7 +39,7 @@ class BurdenAssociationPack(AssociationPack):
 
     def __init__(self, association_pack: AssociationPack, tarball_prefixes: List[str],
                  bgen_dict: Dict[str, BGENInformation], run_marker_tests: bool, is_bolt_non_infinite: bool,
-                 regenie_snps_file: Optional[Path]):
+                 regenie_snps_file: Optional[Path], tarball_chunks: List[str]):
 
         super().__init__(association_pack.is_binary, association_pack.sex, association_pack.threads,
                          association_pack.pheno_names, association_pack.ignore_base_covariates,
@@ -47,6 +47,7 @@ class BurdenAssociationPack(AssociationPack):
                          association_pack.cmd_executor)
 
         self.tarball_prefixes = tarball_prefixes
+        self.tarball_chunks = tarball_chunks
         self.bgen_dict = bgen_dict
         self.run_marker_tests = run_marker_tests
         self.is_bolt_non_infinite = is_bolt_non_infinite

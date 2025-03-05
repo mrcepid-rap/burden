@@ -1,3 +1,4 @@
+import os
 import re
 import csv
 import pandas as pd
@@ -19,40 +20,26 @@ class REGENIERunner(ToolRunner):
     def run_tool(self) -> None:
 
         # 1. Run step 1 of regenie
-        self._logger.info("Running REGENIE step 1")
-        regenie_step1_log = self._run_regenie_step_one()
-        # Add the step1 files to output, so we can use later if need-be:
-        self._outputs.extend([Path('fit_out_pred.list'),
-                              Path('fit_out_1.loco'),
-                              regenie_step1_log])
+        # self._logger.info("Running REGENIE step 1")
+        # regenie_step1_log = self._run_regenie_step_one()
+        # # Add the step1 files to output, so we can use later if need-be:
+        # self._outputs.extend([Path('fit_out_pred.list'),
+        #                       Path('fit_out_1.loco'),
+        #                       regenie_step1_log])
 
-        # 2. Prep bgen files for a run:
+        # # 2. Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
         thread_utility = ThreadUtility(self._association_pack.threads,
                                        error_message='A REGENIE bgen thread failed',
                                        incrementor=10,
                                        thread_factor=4)
 
-        for chromosome in get_chromosomes():
+        for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
             # This makes use of a utility class from AssociationResources since bgen filtering/processing is
             # IDENTICAL to that done for BOLT.
             thread_utility.launch_job(class_type=process_bgen_file,
                                       chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
                                       chromosome=chromosome)
-        thread_utility.collect_futures()
-
-        # 3. Prep mask files
-        self._logger.info("Prepping mask files")
-        thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A REGENIE mask thread failed',
-                                       incrementor=10,
-                                       thread_factor=1)
-        for chromosome in get_chromosomes():
-            for tarball_prefix in self._association_pack.tarball_prefixes:
-                if Path(f'{tarball_prefix}.{chromosome}.variants_table.STAAR.tsv').exists():
-                    thread_utility.launch_job(class_type=self._make_regenie_files,
-                                              tarball_prefix=tarball_prefix,
-                                              chromosome=chromosome)
         thread_utility.collect_futures()
 
         # 4. Run step 2 of regenie
@@ -61,9 +48,10 @@ class REGENIERunner(ToolRunner):
                                        error_message='A REGENIE step 2 thread failed',
                                        incrementor=10,
                                        thread_factor=1)
-        for chromosome in get_chromosomes():
+        for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
             for tarball_prefix in self._association_pack.tarball_prefixes:
-                if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
+                # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
+                if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
                     thread_utility.launch_job(self._run_regenie_step_two,
                                               tarball_prefix=tarball_prefix,
                                               chromosome=chromosome)
@@ -116,57 +104,6 @@ class REGENIERunner(ToolRunner):
         # 6. Process outputs
         self._logger.info("Processing REGENIE outputs...")
         self._outputs.extend(self._annotate_regenie_output(completed_gene_tables, completed_marker_chromosomes))
-
-    # We need three files per chromosome-mask combination:
-    # 1. Annotation file, which lists variants with gene and mask name
-    # 2. Set list file, which lists all variants per-gene
-    # 3. A mask name file, which lists all masks to run
-    # This function handles creation of those files
-    @staticmethod
-    def _make_regenie_files(tarball_prefix: str, chromosome: str) -> None:
-
-        # This is used to print the set list file (2) below
-        gene_dict = {}
-        prefix = f'{tarball_prefix}.{chromosome}'
-
-        # 1. Annotation File
-        with Path(f'{prefix}.REGENIE.annotationFile.tsv').open('w') as annotation_file,\
-                Path(f'{prefix}.variants_table.STAAR.tsv').open('r') as table_file:
-
-            table_reader = csv.DictReader(table_file, delimiter='\t')
-            annotation_writer = csv.DictWriter(annotation_file,
-                                               delimiter='\t',
-                                               fieldnames=['varID', 'ENST', 'annotation'],
-                                               extrasaction='ignore',
-                                               lineterminator='\n')  # REGENIE is very fussy about line terminators.
-            last_var = None  # Need to check for small number of duplicate variants...
-            for variant in table_reader:
-                if last_var != variant['varID']:
-                    variant['annotation'] = tarball_prefix
-                    annotation_writer.writerow(variant)
-                    last_var = variant['varID']
-                    # And build gene_dict while we iterate...
-                    if variant['ENST'] in gene_dict:
-                        gene_dict[variant['ENST']]['varIDs'].append(variant['varID'])
-                    else:
-                        gene_dict[variant['ENST']] = {'chrom': variant['chrom'],
-                                                      'pos': variant['pos'],
-                                                      'varIDs': [variant['varID']],
-                                                      'ENST': variant['ENST']}
-
-        # 2. Set list file
-        with Path(f'{prefix}.REGENIE.setListFile.tsv').open('w') as set_list_file:
-            set_list_writer = csv.DictWriter(set_list_file,
-                                             delimiter="\t",
-                                             fieldnames=['ENST', 'chrom', 'pos', 'varIDs'],
-                                             lineterminator='\n')
-            for gene in sorted(list(gene_dict.values()), key=lambda item: item['pos']):
-                gene['varIDs'] = ','.join(gene['varIDs'])
-                set_list_writer.writerow(gene)
-
-        # 3. This makes the mask name file. Just needs to be the name of the mask (tarball prefix) used in file #1
-        with Path(f'{prefix}.REGENIE.maskfile.tsv').open('w') as mask_file:
-            mask_file.write(f'{tarball_prefix}\t{tarball_prefix}\n')
 
     def _run_regenie_step_one(self) -> Path:
 
@@ -226,9 +163,9 @@ class REGENIERunner(ToolRunner):
               f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
               f'--pred /test/fit_out_pred.list ' \
-              f'--anno-file /test/{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv ' \
-              f'--mask-def /test/{tarball_prefix}.{chromosome}.REGENIE.maskfile.tsv ' \
-              f'--set-list /test/{tarball_prefix}.{chromosome}.REGENIE.setListFile.tsv ' \
+              f'--anno-file /test/{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt ' \
+              f'--mask-def /test/{tarball_prefix}.{chromosome}.REGENIE.maskfile.txt ' \
+              f'--set-list /test/{tarball_prefix}.{chromosome}.REGENIE.setListFile.txt ' \
               f'--aaf-bins 1 ' \
               f'--vc-tests skato-acat,acato-full ' \
               f'--bsize 400 ' \
@@ -282,6 +219,9 @@ class REGENIERunner(ToolRunner):
                                     sep=' ',
                                     comment='#')
 
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.width', None)
+
         # And then should be able to split into 3 columns:
         regenie_table[['ENST', 'MASK', 'SUBSET']] = regenie_table['ID'].str.split('.', expand=True)
 
@@ -318,7 +258,7 @@ class REGENIERunner(ToolRunner):
 
         # Declare a list for storing outputs
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
-        plot_dir.mkdir()
+        plot_dir.mkdir(exist_ok=True)
         outputs = [plot_dir]
         regenie_table = pd.concat(completed_gene_tables)
 
@@ -358,7 +298,6 @@ class REGENIERunner(ToolRunner):
                                                          sig_threshold=1E-6)
 
                     manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.REGENIE.png')
-
             # Write to disk
             regenie_table.to_csv(path_or_buf=gene_out, index=True, sep="\t", na_rep='NA')
 

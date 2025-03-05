@@ -1,6 +1,10 @@
+from abc import abstractmethod
+
 import dxpy
 
 from typing import Type
+import json
+import os
 
 from burden import burden_ingester
 from burden.burden_association_pack import BurdenProgramArgs, BurdenAssociationPack
@@ -28,6 +32,7 @@ class LoadModule(ModuleLoader):
         # every possible tool is a subclass of 'ToolRunner' with a required method of 'run_tool' we should be OK.
         current_tool = current_class(self.association_pack,
                                      self.output_prefix)
+
         current_tool.run_tool()
 
         # Retrieve outputs – all tools _should_ append to the outputs object so they can be retrieved here.
@@ -97,6 +102,7 @@ class LoadModule(ModuleLoader):
                                   type=self.dxfile_input, dest='regenie_smaller_snps', required=False,
                                   default='None')
 
+
     def _parse_options(self) -> BurdenProgramArgs:
         return BurdenProgramArgs(**vars(self._parser.parse_args(self._split_options(self._input_args))))
 
@@ -117,3 +123,5 @@ class LoadModule(ModuleLoader):
             return module_tools[input_tool]
         else:
             raise dxpy.AppError(f'Tool – {input_tool} – not support. Please try a different input tool!')
+
+
