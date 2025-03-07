@@ -55,7 +55,10 @@ class BOLTRunner(ToolRunner):
 
         # 1.5 Hack
         self._logger.info("Running a hack first to get mismatched samples")
-        self._run_bolt_hack()
+        try:
+            self._run_bolt_hack()
+        except Exception as e:
+            self._logger.error(f'Error running BOLT hack: {e}')
 
         # 2. Actually run BOLT
         self._logger.info("Running BOLT...")
