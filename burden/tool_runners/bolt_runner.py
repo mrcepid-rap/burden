@@ -200,8 +200,16 @@ class BOLTRunner(ToolRunner):
                    f'--qCovarCol=PC{{1:10}} '
 
         file_pattern = 'bolt.in_plink_but_not_imputed.FID_IID*'
-        remove_file = glob.glob(file_pattern)
-        cmd += f'--remove={remove_file} '
+
+        # Search for the file in all subdirectories
+        remove_files = glob.glob(f'**/{file_pattern}', recursive=True)
+
+        if remove_files:  # If files are found
+            for file in remove_files:
+                cmd += f'--remove {file} '  # Append each found file with --remove
+            print("Files found and added to command:", remove_files)
+        else:
+            print("No matching files found.")
 
         if len(self._association_pack.found_quantitative_covariates) > 0:
             for covar in self._association_pack.found_quantitative_covariates:
