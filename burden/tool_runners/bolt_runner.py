@@ -53,13 +53,6 @@ class BOLTRunner(ToolRunner):
             poss_chromosomes.close()
             thread_utility.collect_futures()
 
-        # 1.5 Hack
-        self._logger.info("Running a hack first to get mismatched samples")
-        try:
-            self._run_bolt_hack()
-        except Exception as e:
-            self._logger.error(f'Error running BOLT hack: {e}')
-
         # 2. Actually run BOLT
         self._logger.info("Running BOLT...")
         self._run_bolt()
@@ -118,51 +111,6 @@ class BOLTRunner(ToolRunner):
         # Make sure the original sample file is being used, otherwise BOLT complains
         Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').replace(Path(f'{tarball_prefix}.{chromosome}.sample'))
 
-    # do a BOLT run to get the mismatched samples file
-    def _run_bolt_hack(self) -> None:
-
-        # See the README.md for more information on these parameters
-        # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
-        # REMEMBER we do --noBgenIDcheck because the genetic data is filtered to the covariate file, the bgens are NOT
-        cmd = f'bolt ' + \
-              f'--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
-              f'--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
-              f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
-              f'--phenoCol={self._association_pack.pheno_names[0]} ' \
-              f'--covarFile=/test/phenotypes_covariates.formatted.txt ' \
-              f'--covarMaxLevels=110 ' \
-              f'--LDscoresFile=BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
-              f'--geneticMapFile=BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
-              f'--numThreads={self._association_pack.threads} ' \
-              f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
-              f'--verboseStats ' \
-              f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
-              f'--noBgenIDcheck ' \
-              f'--LDscoresMatchBp ' \
-              f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz '
-
-        if self._association_pack.is_bolt_non_infinite:
-            cmd += '--lmmForceNonInf '
-        else:
-            cmd += '--lmmInfOnly '
-
-        if not self._association_pack.ignore_base_covariates:
-            cmd += f'--covarCol=sex ' \
-                   f'--covarCol=wes_batch ' \
-                   f'--qCovarCol=age ' \
-                   f'--qCovarCol=age_squared ' \
-                   f'--qCovarCol=PC{{1:10}} '
-
-        if len(self._association_pack.found_quantitative_covariates) > 0:
-            for covar in self._association_pack.found_quantitative_covariates:
-                cmd += f'--qCovarCol={covar} '
-        if len(self._association_pack.found_categorical_covariates) > 0:
-            for covar in self._association_pack.found_categorical_covariates:
-                cmd += f'--covarCol={covar} '
-        bolt_log = Path(f'{self._output_prefix}.BOLT.log')
-
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
-
 
     # Run rare variant association testing using BOLT
     def _run_bolt(self) -> None:
@@ -198,18 +146,6 @@ class BOLTRunner(ToolRunner):
                    f'--qCovarCol=age ' \
                    f'--qCovarCol=age_squared ' \
                    f'--qCovarCol=PC{{1:10}} '
-
-        file_pattern = 'bolt.in_plink_but_not_imputed.FID_IID*'
-
-        # Search for the file in all subdirectories
-        remove_files = glob.glob(f'**/{file_pattern}', recursive=True)
-
-        if remove_files:  # If files are found
-            for file in remove_files:
-                cmd += f'--remove {file} '  # Append each found file with --remove
-            print("Files found and added to command:", remove_files)
-        else:
-            print("No matching files found.")
 
         if len(self._association_pack.found_quantitative_covariates) > 0:
             for covar in self._association_pack.found_quantitative_covariates:
