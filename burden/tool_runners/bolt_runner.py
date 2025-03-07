@@ -6,7 +6,7 @@ from typing import List
 import os
 import glob
 import re
-
+import subprocess
 from burden.tool_runners.tool_runner import ToolRunner
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.association_resources import get_chromosomes, build_transcript_table, \
@@ -155,7 +155,16 @@ class BOLTRunner(ToolRunner):
                 cmd += f'--covarCol={covar} '
         bolt_log = Path(f'{self._output_prefix}.BOLT.log')
 
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
+        try:
+            self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
+        except subprocess.CalledProcessError:
+            # Find the file that starts with 'bolt.in_plink_but_not_imputed.FID_IID'
+            file_pattern = 'bolt.in_plink_but_not_imputed.FID_IID*'
+            remove_list = glob.glob(file_pattern)
+            if remove_list:
+                remove_file = remove_list[0]
+                cmd += f'--remove={remove_file} '
+            self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
 
     # This parses the BOLT output file into a usable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:
