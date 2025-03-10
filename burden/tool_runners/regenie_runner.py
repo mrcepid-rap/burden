@@ -20,12 +20,12 @@ class REGENIERunner(ToolRunner):
     def run_tool(self) -> None:
 
         # 1. Run step 1 of regenie
-        # self._logger.info("Running REGENIE step 1")
-        # regenie_step1_log = self._run_regenie_step_one()
-        # # Add the step1 files to output, so we can use later if need-be:
-        # self._outputs.extend([Path('fit_out_pred.list'),
-        #                       Path('fit_out_1.loco'),
-        #                       regenie_step1_log])
+        self._logger.info("Running REGENIE step 1")
+        regenie_step1_log = self._run_regenie_step_one()
+        # Add the step1 files to output, so we can use later if need-be:
+        self._outputs.extend([Path('fit_out_pred.list'),
+                              Path('fit_out_1.loco'),
+                              regenie_step1_log])
 
         # # 2. Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
@@ -84,7 +84,7 @@ class REGENIERunner(ToolRunner):
                                            error_message='A SAIGE marker thread failed',
                                            incrementor=1,
                                            thread_factor=4)
-            for chromosome in get_chromosomes():
+            for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
                 thread_utility.launch_job(class_type=self._regenie_marker_run,
                                           chromosome=chromosome)
                 completed_marker_chromosomes.append(chromosome)
