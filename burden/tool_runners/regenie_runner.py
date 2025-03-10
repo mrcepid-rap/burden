@@ -140,6 +140,13 @@ class REGENIERunner(ToolRunner):
                     self._logger.info(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}')
             plink_out.close()
 
+        with open("plink_out.txt", "r") as file:
+            for i in range(30):
+                line = file.readline()
+                if not line:
+                    break  # in case file has fewer than 10 lines
+                print(line.strip())
+
         cmd = 'regenie ' \
               '--step 1 ' \
               '--bed /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
