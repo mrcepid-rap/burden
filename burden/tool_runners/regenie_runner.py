@@ -115,7 +115,7 @@ class REGENIERunner(ToolRunner):
         cmd = f'plink2 --bfile /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
               f'--min-ac 100 ' \
               f'--max-ac {str(max_mac)}' \
-              f'--write-snplist ' \
+              f' --write-snplist ' \
               f'--out /test/REGENIE_extract'
 
         print(cmd)
