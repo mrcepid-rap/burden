@@ -119,7 +119,7 @@ class REGENIERunner(ToolRunner):
               f'--out /test/REGENIE_extract'
 
         # show me the contents of REGENIE_extract.snplist in a log
-        with open("/test/REGENIE_extract", "r") as file:
+        with open("/test/REGENIE_extract.snplist", "r") as file:
             for i in range(10):
                 line = file.readline()
                 if not line:
