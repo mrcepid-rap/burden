@@ -115,10 +115,19 @@ class REGENIERunner(ToolRunner):
         cmd = f'plink2 --bfile /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
               f'--min-ac 100 ' \
               f'--max-ac {str(max_mac)}' \
-              f' --write-snplist ' \
+              f'--write-snplist ' \
               f'--out /test/REGENIE_extract'
 
         print(cmd)
+        print(max_mac)
+
+        if self._association_pack.regenie_snps_file is not None:
+            print('not none')
+            cmd += f' --extract /test/genetics/{self._association_pack.regenie_snps_file.name}'
+        print('none')
+        print(cmd)
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=Path('plink_out.txt'))
+
         # show me the contents of REGENIE_extract.snplist in a log
         with open("/test/REGENIE_extract.snplist", "r") as file:
             for i in range(10):
@@ -127,12 +136,6 @@ class REGENIERunner(ToolRunner):
                     break  # in case file has fewer than 10 lines
                 print(line.strip())
 
-        if self._association_pack.regenie_snps_file is not None:
-            print('not none')
-            cmd += f' --extract /test/genetics/{self._association_pack.regenie_snps_file.name}'
-        print('none')
-        print(cmd)
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=Path('plink_out.txt'))
 
         with open('plink_out.txt', 'r') as plink_out:
             for line in plink_out:
