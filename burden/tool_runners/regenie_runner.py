@@ -129,12 +129,12 @@ class REGENIERunner(ToolRunner):
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=Path('plink_out.txt'))
 
         # show me the contents of REGENIE_extract.snplist in a log
-        with open("/test/REGENIE_extract.snplist", "r") as file:
-            for i in range(10):
-                line = file.readline()
-                if not line:
-                    break  # in case file has fewer than 10 lines
-                print(line.strip())
+        # with open("/test/REGENIE_extract.snplist", "r") as file:
+        #     for i in range(10):
+        #         line = file.readline()
+        #         if not line:
+        #             break  # in case file has fewer than 10 lines
+        #         print(line.strip())
 
 
         with open('plink_out.txt', 'r') as plink_out:
