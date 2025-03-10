@@ -230,7 +230,7 @@ class BOLTRunner(ToolRunner):
         if self._association_pack.run_marker_tests:
             variant_index = []
             # Open all chromosome indicies and load them into a list and append them together
-            for chromosome in get_chromosomes():
+            for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
                 variant_index.append(pd.read_csv(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz',
                                                  sep="\t",
                                                  dtype={'SIFT': str, 'POLYPHEN': str}))
