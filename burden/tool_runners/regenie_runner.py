@@ -118,6 +118,7 @@ class REGENIERunner(ToolRunner):
               f' --write-snplist ' \
               f'--out /test/REGENIE_extract'
 
+        print(cmd)
         # show me the contents of REGENIE_extract.snplist in a log
         with open("/test/REGENIE_extract.snplist", "r") as file:
             for i in range(10):
