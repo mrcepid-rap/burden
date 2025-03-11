@@ -118,24 +118,9 @@ class REGENIERunner(ToolRunner):
               f' --write-snplist ' \
               f'--out /test/REGENIE_extract'
 
-        print(cmd)
-        print(max_mac)
-
         if self._association_pack.regenie_snps_file is not None:
-            print('not none')
             cmd += f' --extract /test/genetics/{self._association_pack.regenie_snps_file.name}'
-        print('none')
-        print(cmd)
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=Path('plink_out.txt'))
-
-        # show me the contents of REGENIE_extract.snplist in a log
-        # with open("/test/REGENIE_extract.snplist", "r") as file:
-        #     for i in range(10):
-        #         line = file.readline()
-        #         if not line:
-        #             break  # in case file has fewer than 10 lines
-        #         print(line.strip())
-
 
         with open('plink_out.txt', 'r') as plink_out:
             for line in plink_out:
@@ -143,13 +128,6 @@ class REGENIERunner(ToolRunner):
                 if found_snp_count is not None:
                     self._logger.info(f'Number of SNPs for REGENIE Step 1: {found_snp_count.group(1)}')
             plink_out.close()
-
-        with open("plink_out.txt", "r") as file:
-            for i in range(30):
-                line = file.readline()
-                if not line:
-                    break  # in case file has fewer than 10 lines
-                print(line.strip())
 
         cmd = 'regenie ' \
               '--step 1 ' \
@@ -169,7 +147,6 @@ class REGENIERunner(ToolRunner):
                                        add_array=False,
                                        ignore_base=self._association_pack.ignore_base_covariates)
 
-        print(cmd)
         regenie_log = Path(f'{self._output_prefix}.REGENIE_step1.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
         return regenie_log
