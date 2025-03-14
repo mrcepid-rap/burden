@@ -223,7 +223,7 @@ class BOLTRunner(ToolRunner):
                    plot_dir]
 
         # And bgzip and tabix...
-        outputs.extend(bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
+        outputs.extend(bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4, comment_char='~'))
 
         # And now process the SNP file (if necessary):
         # Read in the variant index (per-chromosome and mash together)
