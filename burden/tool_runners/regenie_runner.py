@@ -215,6 +215,7 @@ class REGENIERunner(ToolRunner):
     def _process_regenie_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
 
         # Load the raw table
+        print(self._association_pack.pheno_names)
         regenie_table = pd.read_csv(f'{tarball_prefix}.{chromosome}_{self._association_pack.pheno_names[0]}.regenie',
                                     sep=' ',
                                     comment='#')
@@ -223,7 +224,9 @@ class REGENIERunner(ToolRunner):
         pd.set_option('display.width', None)
 
         # And then should be able to split into 3 columns:
+        print(regenie_table['ID'])
         regenie_table[['ENST', 'MASK', 'SUBSET']] = regenie_table['ID'].str.split('.', expand=True)
+        print(regenie_table)
 
         # And only take the 'all' subset. Singleton is meaningless here
         regenie_table = regenie_table[regenie_table['SUBSET'] == 'all']
@@ -249,7 +252,7 @@ class REGENIERunner(ToolRunner):
 
         # And finally add an AC column
         regenie_table['AC'] = regenie_table['A1FREQ'] * (regenie_table['N'] * 2)
-        regenie_table['AC'] = regenie_table['AC'].round()
+        regenie_table['AC'] = regenie_table['AC'].round().astype(int)
 
         return regenie_table
 
