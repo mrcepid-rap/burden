@@ -57,8 +57,6 @@ class REGENIERunner(ToolRunner):
                     print('exists')
                     print(tarball_prefix)
                     print(chromosome)
-                    # print all files in test/ directory
-                    print(os.listdir('/test/'))
                     # print all files in all directories
                     for root, dirs, files in os.walk('/'):
                         for file in files:
