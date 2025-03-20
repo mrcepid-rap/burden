@@ -53,14 +53,6 @@ class REGENIERunner(ToolRunner):
                 # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
                 if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
                     # print all files in directory
-                    print(os.listdir())
-                    print('exists')
-                    print(tarball_prefix)
-                    print(chromosome)
-                    # print all files in all directories
-                    for root, dirs, files in os.walk('/'):
-                        for file in files:
-                            print(file)
                     thread_utility.launch_job(self._run_regenie_step_two,
                                               tarball_prefix=tarball_prefix,
                                               chromosome=chromosome)
@@ -72,9 +64,6 @@ class REGENIERunner(ToolRunner):
         with regenie_step2_genes_log.open('w') as regenie_step2_genes_writer:
             for result in thread_utility:
                 tarball_prefix, finished_chromosome, current_log = result
-                print(tarball_prefix)
-                print(finished_chromosome)
-                print(current_log)
 
                 completed_gene_tables.append(self._process_regenie_output(tarball_prefix,
                                                                           finished_chromosome))
@@ -184,6 +173,7 @@ class REGENIERunner(ToolRunner):
               f'--bsize 400 ' \
               f'--threads 1 ' \
               f'--minMAC 1 ' \
+              f'--ref-first ' \
               f'--maxCatLevels 110 ' \
               f'--out /test/{tarball_prefix}.{chromosome} '
 
@@ -227,11 +217,6 @@ class REGENIERunner(ToolRunner):
 
     def _process_regenie_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
 
-        # Load the raw table
-        print(self._association_pack.pheno_names)
-        print(tarball_prefix)
-        print(chromosome)
-        print(f'{tarball_prefix}.{chromosome}_{self._association_pack.pheno_names[0]}.regenie')
         regenie_table = pd.read_csv(f'{tarball_prefix}.{chromosome}_{self._association_pack.pheno_names[0]}.regenie',
                                     sep=' ',
                                     comment='#')
@@ -240,10 +225,7 @@ class REGENIERunner(ToolRunner):
         pd.set_option('display.width', None)
 
         # And then should be able to split into 3 columns:
-        print(regenie_table)
-        print(regenie_table['ID'])
         regenie_table[['ENST', 'MASK', 'SUBSET']] = regenie_table['ID'].str.split('.', expand=True)
-        print(regenie_table)
 
         # And only take the 'all' subset. Singleton is meaningless here
         regenie_table = regenie_table[regenie_table['SUBSET'] == 'all']
