@@ -1,14 +1,10 @@
-from abc import abstractmethod
+from typing import Type
 
 import dxpy
-
-from typing import Type
-import json
-import os
+from general_utilities.import_utils.module_loader.module_loader import ModuleLoader
 
 from burden import burden_ingester
 from burden.burden_association_pack import BurdenProgramArgs, BurdenAssociationPack
-from general_utilities.import_utils.module_loader.module_loader import ModuleLoader
 from burden.tool_runners.bolt_runner import BOLTRunner
 from burden.tool_runners.glm_runner import GLMRunner
 from burden.tool_runners.regenie_runner import REGENIERunner
@@ -102,26 +98,26 @@ class LoadModule(ModuleLoader):
                                   type=self.dxfile_input, dest='regenie_smaller_snps', required=False,
                                   default='None')
 
-
     def _parse_options(self) -> BurdenProgramArgs:
         return BurdenProgramArgs(**vars(self._parser.parse_args(self._split_options(self._input_args))))
 
     def _ingest_data(self, parsed_options: BurdenProgramArgs) -> BurdenAssociationPack:
         ingested_data = burden_ingester.BurdenIngestData(parsed_options)
+
         return ingested_data.get_association_pack()
 
     # Just defines possible tools usable by this module
     @staticmethod
     def check_tools(input_tool) -> Type[ToolRunner]:
 
-        module_tools = {'bolt': BOLTRunner,
-                        'saige': SAIGERunner,
-                        'regenie': REGENIERunner,
-                        'staar': STAARRunner,
-                        'glm': GLMRunner}
+        module_tools = {
+            'bolt': BOLTRunner,
+            'saige': SAIGERunner,
+            'regenie': REGENIERunner
+            #'staar': STAARRunner,
+            #'glm': GLMRunner
+        }
         if input_tool in module_tools:
             return module_tools[input_tool]
         else:
             raise dxpy.AppError(f'Tool – {input_tool} – not support. Please try a different input tool!')
-
-

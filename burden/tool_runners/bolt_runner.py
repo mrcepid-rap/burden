@@ -1,18 +1,14 @@
 import csv
-import pandas as pd
-
 from pathlib import Path
 from typing import List
-import os
-import glob
-import re
+
+import pandas as pd
+from general_utilities.association_resources import get_chromosomes, define_field_names_from_pandas, bgzip_and_tabix
+from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.job_management.thread_utility import ThreadUtility
+from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.job_management.thread_utility import ThreadUtility
-from general_utilities.association_resources import get_chromosomes, build_transcript_table, \
-    define_field_names_from_pandas, bgzip_and_tabix
-from general_utilities.import_utils.import_lib import process_bgen_file
-from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 
 class BOLTRunner(ToolRunner):
@@ -42,8 +38,8 @@ class BOLTRunner(ToolRunner):
                                                   chromosome=chromosome)
 
                 if self._association_pack.run_marker_tests:
-                    poss_chromosomes.write(f'/test/filtered_bgen/{chromosome}.filtered.bgen '
-                                           f'/test/filtered_bgen/{chromosome}.filtered.sample\n')
+                    poss_chromosomes.write(f'/test/{chromosome}.filtered.bgen '
+                                           f'/test/{chromosome}.filtered.sample\n')
                     # This makes use of a utility class from AssociationResources since bgen filtering/processing is
                     # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
                     thread_utility.launch_job(class_type=process_bgen_file,
@@ -60,7 +56,6 @@ class BOLTRunner(ToolRunner):
         # 3. Process the outputs
         self._logger.info("Processing BOLT outputs...")
         self._outputs.extend(self._process_bolt_outputs())
-
 
     # This handles processing of mask and whole-exome bgen files for input into BOLT
     def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> None:
@@ -111,7 +106,6 @@ class BOLTRunner(ToolRunner):
         # Make sure the original sample file is being used, otherwise BOLT complains
         Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').replace(Path(f'{tarball_prefix}.{chromosome}.sample'))
 
-
     # Run rare variant association testing using BOLT
     def _run_bolt(self) -> None:
 
@@ -119,11 +113,11 @@ class BOLTRunner(ToolRunner):
         # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
         # REMEMBER we do --noBgenIDcheck because the genetic data is filtered to the covariate file, the bgens are NOT
         cmd = f'bolt ' + \
-              f'--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
-              f'--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
-              f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
+              f'--bfile=/test/{self._association_pack.genetic_filename} ' \
+              f'--exclude=/test/{self._association_pack.low_mac_list.name} ' \
+              f'--phenoFile=/test/{self._association_pack.final_covariates} ' \
               f'--phenoCol={self._association_pack.pheno_names[0]} ' \
-              f'--covarFile=/test/phenotypes_covariates.formatted.txt ' \
+              f'--covarFile=/test/{self._association_pack.final_covariates} ' \
               f'--covarMaxLevels=110 ' \
               f'--LDscoresFile=BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
               f'--geneticMapFile=BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
@@ -223,7 +217,8 @@ class BOLTRunner(ToolRunner):
                    plot_dir]
 
         # And bgzip and tabix...
-        outputs.extend(bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4, comment_char='~'))
+        outputs.extend(
+            bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4, comment_char=' '))
 
         # And now process the SNP file (if necessary):
         # Read in the variant index (per-chromosome and mash together)
@@ -231,7 +226,7 @@ class BOLTRunner(ToolRunner):
             variant_index = []
             # Open all chromosome indicies and load them into a list and append them together
             for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
-                variant_index.append(pd.read_csv(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz',
+                variant_index.append(pd.read_csv(f'{chromosome}.filtered.vep.tsv.gz',
                                                  sep="\t",
                                                  dtype={'SIFT': str, 'POLYPHEN': str}))
 
@@ -253,6 +248,6 @@ class BOLTRunner(ToolRunner):
                 bolt_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
 
             # And bgzip and tabix...
-            outputs.extend(bgzip_and_tabix(marker_tsv, skip_row=1, sequence_row=2, begin_row=3))
+            outputs.extend(bgzip_and_tabix(marker_tsv, skip_row=1, sequence_row=2, begin_row=3, comment_char=' '))
 
         return outputs

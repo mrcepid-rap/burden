@@ -1,17 +1,16 @@
-import os
 import re
-import csv
-import pandas as pd
-
+import re
 from pathlib import Path
 from typing import Tuple, List
 
-from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.job_management.thread_utility import ThreadUtility
+import pandas as pd
 from general_utilities.association_resources import get_chromosomes, define_covariate_string, \
     define_field_names_from_tarball_prefix, bgzip_and_tabix
 from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
+
+from burden.tool_runners.tool_runner import ToolRunner
 
 
 # TODO: Implement multi-phenotype testing for REGENIE
@@ -20,12 +19,17 @@ class REGENIERunner(ToolRunner):
     def run_tool(self) -> None:
 
         # 1. Run step 1 of regenie
-        self._logger.info("Running REGENIE step 1")
-        regenie_step1_log = self._run_regenie_step_one()
-        # Add the step1 files to output, so we can use later if need-be:
-        self._outputs.extend([Path('fit_out_pred.list'),
-                              Path('fit_out_1.loco'),
-                              regenie_step1_log])
+        # if step one has already been run (if the files exist and are not empty)
+        if (not Path('fit_out_pred.list').exists() or Path('fit_out_pred.list').stat().st_size == 0) and \
+                (not Path('fit_out_1.loco').exists() or Path('fit_out_1.loco').stat().st_size == 0):
+            self._logger.info("Running REGENIE step 1")
+            regenie_step1_log = self._run_regenie_step_one()
+            # Add the step1 files to output, so we can use later if need-be:
+            self._outputs.extend([Path('fit_out_pred.list'),
+                                  Path('fit_out_1.loco'),
+                                  regenie_step1_log])
+        else:
+            self._logger.info("REGENIE step 1 files already exist, skipping...")
 
         # # 2. Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
@@ -38,8 +42,8 @@ class REGENIERunner(ToolRunner):
             # This makes use of a utility class from AssociationResources since bgen filtering/processing is
             # IDENTICAL to that done for BOLT.
             thread_utility.launch_job(class_type=process_bgen_file,
-                                      chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
-                                      chromosome=chromosome)
+                                      chrom_bgen_index=self._association_pack.bgen_dict[chromosome]
+                                      )
         thread_utility.collect_futures()
 
         # 4. Run step 2 of regenie
@@ -114,7 +118,7 @@ class REGENIERunner(ToolRunner):
         # 1. Select variants from --extract (if present)
         # 2. THEN filter based on max/min AC (mac/max-mac)
         max_mac = (self._sample_count * 2) - 100
-        cmd = f'plink2 --bfile /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
+        cmd = f'plink2 --bfile /test/{self._association_pack.genetic_filename} ' \
               f'--min-ac 100 ' \
               f'--max-ac {str(max_mac)}' \
               f' --write-snplist ' \
@@ -133,10 +137,10 @@ class REGENIERunner(ToolRunner):
 
         cmd = 'regenie ' \
               '--step 1 ' \
-              '--bed /test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
+              f'--bed /test/{self._association_pack.genetic_filename} ' \
               '--extract /test/REGENIE_extract.snplist ' \
-              '--covarFile /test/phenotypes_covariates.formatted.txt ' \
-              '--phenoFile /test/phenotypes_covariates.formatted.txt ' \
+              f'--covarFile /test/{self._association_pack.final_covariates} ' \
+              f'--phenoFile /test/{self._association_pack.final_covariates} ' \
               '--maxCatLevels 110 ' \
               '--bsize 1000 ' \
               '--out /test/fit_out ' \
@@ -158,11 +162,11 @@ class REGENIERunner(ToolRunner):
         # Note – there is some issue with skato (in --vc-tests flag), so I have changed to skato-acat which works...?
         cmd = f'regenie ' \
               f'--step 2 ' \
-              f'--bgen /test/filtered_bgen/{chromosome}.filtered.bgen ' \
-              f'--sample /test/filtered_bgen/{chromosome}.filtered.sample ' \
+              f'--bgen /test/{chromosome}.bgen ' \
+              f'--sample /test/{chromosome}.sample ' \
               f'--keep /test/SAMPLES_Include.txt ' \
-              f'--covarFile /test/phenotypes_covariates.formatted.txt ' \
-              f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
+              f'--covarFile /test/{self._association_pack.final_covariates} ' \
+              f'--phenoFile /test/{self._association_pack.final_covariates} ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
               f'--pred /test/fit_out_pred.list ' \
               f'--anno-file /test/{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt ' \
@@ -192,16 +196,17 @@ class REGENIERunner(ToolRunner):
 
         cmd = f'regenie ' \
               f'--step 2 ' \
-              f'--bgen /test/filtered_bgen/{chromosome}.filtered.bgen ' \
-              f'--sample /test/filtered_bgen/{chromosome}.filtered.sample ' \
-              f'--keep /test/SAMPLES_Include.txt ' \
-              f'--covarFile /test/phenotypes_covariates.formatted.txt ' \
-              f'--phenoFile /test/phenotypes_covariates.formatted.txt ' \
+              f'--bgen /test/{chromosome}.bgen ' \
+              f'--sample /test/{chromosome}.sample ' \
+              f'--keep /test/{self._association_pack.inclusion_samples} ' \
+              f'--covarFile /test/{self._association_pack.final_covariates} ' \
+              f'--phenoFile /test/{self._association_pack.final_covariates} ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
               f'--pred /test/fit_out_pred.list ' \
               f'--maxCatLevels 110 ' \
               f'--bsize 200 ' \
               f'--threads 4 ' \
+              f'--ref-first ' \
               f'--out /test/{chromosome}.markers.REGENIE '
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
@@ -304,7 +309,7 @@ class REGENIERunner(ToolRunner):
             regenie_table.to_csv(path_or_buf=gene_out, index=True, sep="\t", na_rep='NA')
 
         # And bgzip and tabix...
-        outputs.extend(bgzip_and_tabix(regenie_gene_out, comment_char='c', sequence_row=2, begin_row=3, end_row=4))
+        outputs.extend(bgzip_and_tabix(regenie_gene_out, skip_row=1, sequence_row=2, begin_row=3, end_row=4, comment_char=' '))
 
         if self._association_pack.run_marker_tests:
 
@@ -313,7 +318,7 @@ class REGENIERunner(ToolRunner):
             # Open all chromosome indicies and load them into a list and append them together
             for chromosome in completed_marker_chromosomes:
                 variant_index.append(
-                    pd.read_csv(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz',
+                    pd.read_csv(f'{chromosome}.filtered.vep.tsv.gz',
                                 sep="\t",
                                 dtype={'SIFT': str, 'POLYPHEN': str}))
                 regenie_table_marker.append(
@@ -338,6 +343,6 @@ class REGENIERunner(ToolRunner):
                 regenie_table_marker = regenie_table_marker.sort_values(by=['CHROM', 'POS'])
                 regenie_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
 
-            outputs.extend(bgzip_and_tabix(regenie_marker_out, skip_row=1, sequence_row=2, begin_row=3, end_row=3))
+            outputs.extend(bgzip_and_tabix(regenie_marker_out, skip_row=1, sequence_row=2, begin_row=3, end_row=3, comment_char=' '))
 
         return outputs

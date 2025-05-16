@@ -1,10 +1,31 @@
-/.talismanrc
-/test
+# System files
 .DS_Store
+
+# IDE files
 .idea/
-all_chroms.log
-dx_run.log
+
+# Python-related files
 poetry.lock
-test/test_data
 burden/__pycache__/
 burden/tool_runners/__pycache__/
+burden.egg-info/
+test/__pycache__/
+
+# Build and dependency files
+build
+uv.lock
+
+# Logs
+all_chroms.log
+dx_run.log
+test/fit_out.log
+
+# Test data and outputs
+test/test_data
+test/test_plots
+test/fit_out_1.loco
+test/fit_out_pred.list
+test/temp_test_outputs
+
+# Security tools
+/.talismanrc
