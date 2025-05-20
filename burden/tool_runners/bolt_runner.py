@@ -217,8 +217,8 @@ class BOLTRunner(ToolRunner):
                    plot_dir]
 
         # And bgzip and tabix...
-        outputs.extend(
-            bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4, comment_char=' '))
+        outputs.extend(bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
+
 
         # And now process the SNP file (if necessary):
         # Read in the variant index (per-chromosome and mash together)
@@ -248,6 +248,6 @@ class BOLTRunner(ToolRunner):
                 bolt_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
 
             # And bgzip and tabix...
-            outputs.extend(bgzip_and_tabix(marker_tsv, skip_row=1, sequence_row=2, begin_row=3, comment_char=' '))
+            outputs.extend(bgzip_and_tabix(marker_tsv, skip_row=1, sequence_row=2, begin_row=3))
 
         return outputs

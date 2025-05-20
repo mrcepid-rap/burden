@@ -248,7 +248,7 @@ class SAIGERunner(ToolRunner):
                     manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.SAIGE.png')
 
         # And bgzip and tabix...
-        outputs.extend(bgzip_and_tabix(saige_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4, comment_char=' '))
+        outputs.extend(bgzip_and_tabix(saige_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
 
         if self._association_pack.run_marker_tests:
 
