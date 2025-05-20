@@ -306,10 +306,10 @@ class REGENIERunner(ToolRunner):
 
                     manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.REGENIE.png')
             # Write to disk
-            regenie_table.to_csv(path_or_buf=gene_out, index=True, sep="\t", na_rep='NA')
+            regenie_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
 
         # And bgzip and tabix...
-        outputs.extend(bgzip_and_tabix(regenie_gene_out, comment_char='c', sequence_row=2, begin_row=3, end_row=4))
+        outputs.extend(bgzip_and_tabix(regenie_gene_out, comment_char='c', sequence_row=1, begin_row=2, end_row=3))
 
         if self._association_pack.run_marker_tests:
 
