@@ -1,15 +1,14 @@
 import csv
-import pandas as pd
-
 from pathlib import Path
 from typing import List
 
-from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.job_management.thread_utility import ThreadUtility
-from general_utilities.association_resources import get_chromosomes, build_transcript_table, \
-    define_field_names_from_pandas, bgzip_and_tabix
+import pandas as pd
+from general_utilities.association_resources import get_chromosomes, define_field_names_from_pandas, bgzip_and_tabix
 from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
+
+from burden.tool_runners.tool_runner import ToolRunner
 
 
 class BOLTRunner(ToolRunner):
@@ -29,7 +28,7 @@ class BOLTRunner(ToolRunner):
         # The 'poss_chromosomes.txt' has a slightly different format depending on the data-type being used, but
         # generally has a format of <genetics file>\t<fam file>
         with open('poss_chromosomes.txt', 'w') as poss_chromosomes:
-            for chromosome in get_chromosomes():
+            for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
                 for tarball_prefix in self._association_pack.tarball_prefixes:
                     if Path(f'{tarball_prefix}.{chromosome}.BOLT.bgen').exists():
                         poss_chromosomes.write(f'/test/{tarball_prefix}.{chromosome}.bgen '
@@ -39,8 +38,8 @@ class BOLTRunner(ToolRunner):
                                                   chromosome=chromosome)
 
                 if self._association_pack.run_marker_tests:
-                    poss_chromosomes.write(f'/test/filtered_bgen/{chromosome}.filtered.bgen '
-                                           f'/test/filtered_bgen/{chromosome}.filtered.sample\n')
+                    poss_chromosomes.write(f'/test/{chromosome}.filtered.bgen '
+                                           f'/test/{chromosome}.filtered.sample\n')
                     # This makes use of a utility class from AssociationResources since bgen filtering/processing is
                     # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
                     thread_utility.launch_job(class_type=process_bgen_file,
@@ -66,7 +65,7 @@ class BOLTRunner(ToolRunner):
         # variant IDs within a bgen file. For future devs:
         # I code every individual as female. This is because BOLT cannot handle plink2's default coding of ploidy
         # for males as 1. I recognise this is a hack, but for the purposes of this pipeline it is acceptable.
-        with Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').open('r') as bgen_sample,\
+        with Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').open('r') as bgen_sample, \
                 Path(f'{tarball_prefix}.{chromosome}.BOLT.fix.sample').open('w') as bgen_fix_sample:
 
             sample_reader = csv.DictReader(bgen_sample, delimiter=' ')
@@ -114,20 +113,21 @@ class BOLTRunner(ToolRunner):
         # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
         # REMEMBER we do --noBgenIDcheck because the genetic data is filtered to the covariate file, the bgens are NOT
         cmd = f'bolt ' + \
-                f'--bfile=/test/genetics/UKBB_470K_Autosomes_QCd_WBA ' \
-                f'--exclude=/test/genetics/UKBB_470K_Autosomes_QCd.low_MAC.snplist ' \
-                f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
-                f'--phenoCol={self._association_pack.pheno_names[0]} ' \
-                f'--covarFile=/test/phenotypes_covariates.formatted.txt ' \
-                f'--covarMaxLevels=110 ' \
-                f'--LDscoresFile=BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
-                f'--geneticMapFile=BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
-                f'--numThreads={self._association_pack.threads} ' \
-                f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
-                f'--verboseStats ' \
-                f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
-                f'--noBgenIDcheck ' \
-                f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz '
+              f'--bfile=/test/{self._association_pack.genetic_filename} ' \
+              f'--exclude=/test/{self._association_pack.low_mac_list.name} ' \
+              f'--phenoFile=/test/{self._association_pack.final_covariates} ' \
+              f'--phenoCol={self._association_pack.pheno_names[0]} ' \
+              f'--covarFile=/test/{self._association_pack.final_covariates} ' \
+              f'--covarMaxLevels=110 ' \
+              f'--LDscoresFile=BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
+              f'--geneticMapFile=BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
+              f'--numThreads={self._association_pack.threads} ' \
+              f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
+              f'--verboseStats ' \
+              f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
+              f'--noBgenIDcheck ' \
+              f'--LDscoresMatchBp ' \
+              f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz '
 
         if self._association_pack.is_bolt_non_infinite:
             cmd += '--lmmForceNonInf '
@@ -157,7 +157,7 @@ class BOLTRunner(ToolRunner):
         # First read in the BOLT stats file:
         bolt_table = pd.read_csv(f'{self._output_prefix}.bgen.stats.gz', sep="\t")
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
-        plot_dir.mkdir()
+        plot_dir.mkdir(exist_ok=True)
 
         # Split the main table into marker and gene tables and remove the larger table
         bolt_table_gene = bolt_table[bolt_table['SNP'].str.contains('ENST')]
@@ -179,7 +179,7 @@ class BOLTRunner(ToolRunner):
                     break
             bolt_log_file.close()
         # And use them to calculate a MAC
-        bolt_table_gene['AC'] = bolt_table_gene['A1FREQ'] * (n_bolt*2)
+        bolt_table_gene['AC'] = bolt_table_gene['A1FREQ'] * (n_bolt * 2)
         bolt_table_gene['AC'] = bolt_table_gene['AC'].round()
 
         # Now merge the transcripts table into the gene table to add annotation and the write
@@ -206,7 +206,7 @@ class BOLTRunner(ToolRunner):
                                                          csq_column='MASK',
                                                          maf_column='A1FREQ', gene_symbol_column='SYMBOL',
                                                          clumping_distance=1,
-                                                         maf_cutoff=30 / (n_bolt*2),
+                                                         maf_cutoff=30 / (n_bolt * 2),
                                                          sig_threshold=1E-6)
 
                     manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.BOLT.png')
@@ -219,13 +219,14 @@ class BOLTRunner(ToolRunner):
         # And bgzip and tabix...
         outputs.extend(bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
 
+
         # And now process the SNP file (if necessary):
         # Read in the variant index (per-chromosome and mash together)
         if self._association_pack.run_marker_tests:
             variant_index = []
             # Open all chromosome indicies and load them into a list and append them together
-            for chromosome in get_chromosomes():
-                variant_index.append(pd.read_csv(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz',
+            for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
+                variant_index.append(pd.read_csv(f'{chromosome}.filtered.vep.tsv.gz',
                                                  sep="\t",
                                                  dtype={'SIFT': str, 'POLYPHEN': str}))
 
@@ -235,7 +236,7 @@ class BOLTRunner(ToolRunner):
             # For markers, we can use the SNP ID column to get what we need
             bolt_table_marker = bolt_table_marker.rename(columns={'SNP': 'varID', 'A1FREQ': 'BOLT_MAF'})
             bolt_table_marker = bolt_table_marker.drop(columns=['CHR', 'BP', 'ALLELE1', 'ALLELE0', 'GENPOS'])
-            bolt_table_marker['BOLT_AC'] = bolt_table_marker['BOLT_MAF'] * (n_bolt*2)
+            bolt_table_marker['BOLT_AC'] = bolt_table_marker['BOLT_MAF'] * (n_bolt * 2)
             bolt_table_marker['BOLT_AC'] = bolt_table_marker['BOLT_AC'].round()
             bolt_table_marker = pd.merge(variant_index, bolt_table_marker, on='varID', how="left")
 
