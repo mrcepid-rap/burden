@@ -5,13 +5,14 @@
 .idea/
 
 # Python-related files
-poetry.lock
 burden/__pycache__/
 burden/tool_runners/__pycache__/
 burden.egg-info/
 test/__pycache__/
 
 # Build and dependency files
+.venv
+.python-version
 build
 uv.lock
 
@@ -26,6 +27,3 @@ test/test_plots
 test/fit_out_1.loco
 test/fit_out_pred.list
 test/temp_test_outputs
-
-# Security tools
-/.talismanrc

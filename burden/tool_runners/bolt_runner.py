@@ -27,8 +27,8 @@ class BOLTRunner(ToolRunner):
 
         # The 'poss_chromosomes.txt' has a slightly different format depending on the data-type being used, but
         # generally has a format of <genetics file>\t<fam file>
-        with open('poss_chromosomes.txt', 'w') as poss_chromosomes:
-            for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
+        with open(Path('poss_chromosomes.txt'), 'w') as poss_chromosomes:
+            for chromosome in self._association_pack.bgen_dict:
                 for tarball_prefix in self._association_pack.tarball_prefixes:
                     if Path(f'{tarball_prefix}.{chromosome}.BOLT.bgen').exists():
                         poss_chromosomes.write(f'/test/{tarball_prefix}.{chromosome}.bgen '
@@ -58,7 +58,7 @@ class BOLTRunner(ToolRunner):
         self._outputs.extend(self._process_bolt_outputs())
 
     # This handles processing of mask and whole-exome bgen files for input into BOLT
-    def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> None:
+    def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> Path:
 
         # plink2 has implemented a 'fix' for chrX that does not allow samples without sex. This code adds sex back to
         # the bgen sample file so that plink2 will process the data properly. This is the only way I know how to rename
@@ -82,7 +82,7 @@ class BOLTRunner(ToolRunner):
 
         # Do the mask first...
         # We need to modify the bgen file to have an alternate name for IDing masks
-        cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-last\' ' \
+        cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-first\' ' \
               f'--out /test/{tarball_prefix}.{chromosome} ' \
               f'--make-just-pvar ' \
               f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
@@ -95,7 +95,7 @@ class BOLTRunner(ToolRunner):
                 fix_writer.write(f'{variant_id["ID"]} {variant_id["ID"]}-{tarball_prefix}\n')
             fix_writer.close()
 
-        cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-last\' ' \
+        cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-first\' ' \
               f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
               f'--update-name /test/{tarball_prefix}.{chromosome}.fixer ' \
               f'--export bgen-1.2 \'bits=\'8 ' \
@@ -105,6 +105,8 @@ class BOLTRunner(ToolRunner):
 
         # Make sure the original sample file is being used, otherwise BOLT complains
         Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').replace(Path(f'{tarball_prefix}.{chromosome}.sample'))
+
+        return Path(f'{tarball_prefix}.{chromosome}.bgen')
 
     # Run rare variant association testing using BOLT
     def _run_bolt(self) -> None:
@@ -225,7 +227,7 @@ class BOLTRunner(ToolRunner):
         if self._association_pack.run_marker_tests:
             variant_index = []
             # Open all chromosome indicies and load them into a list and append them together
-            for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
+            for chromosome in self._association_pack.bgen_dict:
                 variant_index.append(pd.read_csv(f'{chromosome}.filtered.vep.tsv.gz',
                                                  sep="\t",
                                                  dtype={'SIFT': str, 'POLYPHEN': str}))

@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import List
 
 import pandas as pd
-from general_utilities.association_resources import get_chromosomes
 from general_utilities.job_management.command_executor import build_default_command_executor, DockerMount
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.linear_model.proccess_model_output import process_staar_outputs
@@ -10,14 +9,14 @@ from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 from burden.tool_runners.tool_runner import ToolRunner
 
+# import the models
+staar_null_script = Path(__file__).parent / 'R_resources' / 'runSTAAR_Null.R'
+staar_genes_script = Path(__file__).parent / 'R_resources' / 'runSTAAR_Genes.R'
+
 
 class STAARRunner(ToolRunner):
 
     def run_tool(self) -> None:
-
-        # Get the model imported
-        staar_null_script = Path(__file__).parent / 'R_resources' / 'runSTAAR_Null.R'
-        staar_genes_script = Path(__file__).parent / 'R_resources' / 'runSTAAR_Genes.R'
 
         # 1. Run the STAAR NULL model
         self._logger.info("Running STAAR Null Model...")
@@ -44,7 +43,7 @@ class STAARRunner(ToolRunner):
 
         for phenoname in self._association_pack.pheno_names:
             for tarball_prefix in self._association_pack.tarball_prefixes:
-                for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
+                for chromosome in self._association_pack.bgen_dict:
                     # if gene matrix file exists
                     if Path(f'{tarball_prefix}.GENE.STAAR.mtx').exists():
                         thread_utility.launch_job(self.staar_genes,
@@ -58,7 +57,6 @@ class STAARRunner(ToolRunner):
                         self._logger.warning(f'No gene matrix file found for {tarball_prefix}.{chromosome}. '
                                              f'STAAR analysis will not work.')
                         continue
-
 
         # 3. Print a preliminary STAAR output
         self._logger.info("Finalising STAAR outputs...")

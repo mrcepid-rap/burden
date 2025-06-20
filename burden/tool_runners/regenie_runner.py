@@ -1,10 +1,9 @@
 import re
-import re
 from pathlib import Path
 from typing import Tuple, List
 
 import pandas as pd
-from general_utilities.association_resources import get_chromosomes, define_covariate_string, \
+from general_utilities.association_resources import define_covariate_string, \
     define_field_names_from_tarball_prefix, bgzip_and_tabix
 from general_utilities.import_utils.import_lib import process_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
@@ -20,8 +19,7 @@ class REGENIERunner(ToolRunner):
 
         # 1. Run step 1 of regenie
         # if step one has already been run (if the files exist and are not empty)
-        if (not Path('fit_out_pred.list').exists() or Path('fit_out_pred.list').stat().st_size == 0) and \
-                (not Path('fit_out_1.loco').exists() or Path('fit_out_1.loco').stat().st_size == 0):
+        if not self._association_pack.has_regenie_step_one:
             self._logger.info("Running REGENIE step 1")
             regenie_step1_log = self._run_regenie_step_one()
             # Add the step1 files to output, so we can use later if need-be:
@@ -38,7 +36,7 @@ class REGENIERunner(ToolRunner):
                                        incrementor=10,
                                        thread_factor=4)
 
-        for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
+        for chromosome in self._association_pack.bgen_dict:
             # This makes use of a utility class from AssociationResources since bgen filtering/processing is
             # IDENTICAL to that done for BOLT.
             thread_utility.launch_job(class_type=process_bgen_file,
@@ -52,7 +50,7 @@ class REGENIERunner(ToolRunner):
                                        error_message='A REGENIE step 2 thread failed',
                                        incrementor=10,
                                        thread_factor=1)
-        for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
+        for chromosome in self._association_pack.bgen_dict:
             for tarball_prefix in self._association_pack.tarball_prefixes:
                 # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
                 if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
@@ -81,35 +79,9 @@ class REGENIERunner(ToolRunner):
 
         self._outputs.append(regenie_step2_genes_log)
 
-        # 5. Run per-marker tests, if requested
-        completed_marker_chromosomes = []
-        if self._association_pack.run_marker_tests:
-
-            self._logger.info("Running per-marker tests...")
-            thread_utility = ThreadUtility(self._association_pack.threads,
-                                           error_message='A SAIGE marker thread failed',
-                                           incrementor=1,
-                                           thread_factor=4)
-            for chromosome in get_chromosomes(bgen_dict=self._association_pack.bgen_dict):
-                thread_utility.launch_job(class_type=self._regenie_marker_run,
-                                          chromosome=chromosome)
-                completed_marker_chromosomes.append(chromosome)
-
-            regenie_step2_markers_log = Path(f'{self._output_prefix}.REGENIE_step2_markers.log')
-            with regenie_step2_markers_log.open('w') as regenie_step2_markers_writer:
-                for result in thread_utility:
-                    finished_chromosome, current_log = result
-
-                    regenie_step2_markers_writer.write(f'{finished_chromosome:-^50}')
-                    with current_log.open('r') as current_log_reader:
-                        for line in current_log_reader:
-                            regenie_step2_markers_writer.write(line)
-
-            self._outputs.append(regenie_step2_markers_log)
-
-        # 6. Process outputs
+        # 5. Process outputs
         self._logger.info("Processing REGENIE outputs...")
-        self._outputs.extend(self._annotate_regenie_output(completed_gene_tables, completed_marker_chromosomes))
+        self._outputs.extend(self._annotate_regenie_output(completed_gene_tables))
 
     def _run_regenie_step_one(self) -> Path:
 
@@ -123,10 +95,6 @@ class REGENIERunner(ToolRunner):
               f'--max-ac {str(max_mac)}' \
               f' --write-snplist ' \
               f'--out /test/REGENIE_extract'
-
-        if self._association_pack.regenie_snps_file is not None:
-            cmd += f' --extract /test/genetics/{self._association_pack.regenie_snps_file.name}'
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=Path('plink_out.txt'))
 
         with open('plink_out.txt', 'r') as plink_out:
             for line in plink_out:
@@ -192,42 +160,11 @@ class REGENIERunner(ToolRunner):
 
         return tarball_prefix, chromosome, regenie_log
 
-    def _regenie_marker_run(self, chromosome: str) -> Tuple[str, Path]:
-
-        cmd = f'regenie ' \
-              f'--step 2 ' \
-              f'--bgen /test/{chromosome}.bgen ' \
-              f'--sample /test/{chromosome}.sample ' \
-              f'--keep /test/{self._association_pack.inclusion_samples} ' \
-              f'--covarFile /test/{self._association_pack.final_covariates} ' \
-              f'--phenoFile /test/{self._association_pack.final_covariates} ' \
-              f'--phenoCol {self._association_pack.pheno_names[0]} ' \
-              f'--pred /test/fit_out_pred.list ' \
-              f'--maxCatLevels 110 ' \
-              f'--bsize 200 ' \
-              f'--threads 4 ' \
-              f'--ref-first ' \
-              f'--out /test/{chromosome}.markers.REGENIE '
-
-        cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
-                                       self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary,
-                                       add_array=False,
-                                       ignore_base=self._association_pack.ignore_base_covariates)
-
-        regenie_log = Path(f'{chromosome}.REGENIE_markers.log')
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
-
-        return chromosome, regenie_log
-
     def _process_regenie_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
 
         regenie_table = pd.read_csv(f'{tarball_prefix}.{chromosome}_{self._association_pack.pheno_names[0]}.regenie',
                                     sep=' ',
                                     comment='#')
-
-        pd.set_option('display.max_columns', None)
-        pd.set_option('display.width', None)
 
         # And then should be able to split into 3 columns:
         regenie_table[['ENST', 'MASK', 'SUBSET']] = regenie_table['ID'].str.split('.', expand=True)
@@ -260,8 +197,7 @@ class REGENIERunner(ToolRunner):
 
         return regenie_table
 
-    def _annotate_regenie_output(self, completed_gene_tables: List[pd.DataFrame],
-                                 completed_marker_chromosomes: List[str]) -> List[Path]:
+    def _annotate_regenie_output(self, completed_gene_tables: List[pd.DataFrame]) -> List[Path]:
 
         # Declare a list for storing outputs
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
@@ -310,39 +246,5 @@ class REGENIERunner(ToolRunner):
 
         # And bgzip and tabix...
         outputs.extend(bgzip_and_tabix(regenie_gene_out, comment_char='c', sequence_row=1, begin_row=2, end_row=3))
-
-        if self._association_pack.run_marker_tests:
-
-            variant_index = []
-            regenie_table_marker = []
-            # Open all chromosome indicies and load them into a list and append them together
-            for chromosome in completed_marker_chromosomes:
-                variant_index.append(
-                    pd.read_csv(f'{chromosome}.filtered.vep.tsv.gz',
-                                sep="\t",
-                                dtype={'SIFT': str, 'POLYPHEN': str}))
-                regenie_table_marker.append(
-                    pd.read_csv(f'{chromosome}.markers.REGENIE_{self._association_pack.pheno_names[0]}.regenie',
-                                sep=' '))
-
-            variant_index = pd.concat(variant_index)
-            variant_index = variant_index.set_index('varID')
-
-            regenie_table_marker = pd.concat(regenie_table_marker)
-
-            # For markers, we can use the SNP ID column to get what we need
-            regenie_table_marker = regenie_table_marker.rename(
-                columns={'ID': 'varID', 'A1FREQ': 'REGENIE_MAF'})
-            regenie_table_marker['PVALUE'] = 10 ** (-1 * regenie_table_marker['LOG10P'])
-            regenie_table_marker = regenie_table_marker.drop(columns=['CHROM', 'GENPOS', 'ALLELE0', 'ALLELE1', 'INFO',
-                                                                      'EXTRA', 'TEST', 'LOG10P'])
-            regenie_table_marker = pd.merge(variant_index, regenie_table_marker, on='varID', how="left")
-            regenie_marker_out = Path(f'{self._output_prefix}.markers.REGENIE.stats.tsv')
-            with regenie_marker_out.open('w') as marker_out:
-                # Sort by chrom/pos just to be sure...
-                regenie_table_marker = regenie_table_marker.sort_values(by=['CHROM', 'POS'])
-                regenie_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
-
-            outputs.extend(bgzip_and_tabix(regenie_marker_out, skip_row=1, sequence_row=2, begin_row=3, end_row=3))
 
         return outputs
