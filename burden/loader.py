@@ -90,13 +90,13 @@ class LoadModule(ModuleLoader):
                                        "this can drastically increase runtimes, especially when analysing the "
                                        "entire UKBB dataset.",
                                   dest='bolt_non_infinite', action='store_true')
-        self._parser.add_argument('--regenie_smaller_snps',
-                                  help="Run REGENIE with the smaller subset of SNPs used for relatedness calculations "
-                                       "in Bycroft et al. Input for this parameter is the file ID of the SNP qc file "
-                                       "provided by the UKBB "
-                                       "[typically located at /Bulk/Genotype Results/Genotype calls/ukb_snp_qc.txt].",
-                                  type=self.dxfile_input, dest='regenie_smaller_snps', required=False,
-                                  default='None')
+        self._parser.add_argument('--regenie_run',
+                                  help="A file containing results from a previous REGENIE burden analysis"
+                                       "with step1 already completed. MUST contain results for identical phenotype"
+                                       "and covariates.",
+                                  type=self.dxfile_input, dest='regenie_run', required=False,
+                                  metavar=example_dxfile)
+
 
     def _parse_options(self) -> BurdenProgramArgs:
         return BurdenProgramArgs(**vars(self._parser.parse_args(self._split_options(self._input_args))))

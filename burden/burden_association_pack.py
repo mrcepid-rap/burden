@@ -21,7 +21,7 @@ class BurdenProgramArgs(ProgramArgs):
     sparse_grm: InputFileHandler
     sparse_grm_sample: InputFileHandler
     bolt_non_infinite: bool
-    regenie_smaller_snps: Optional[InputFileHandler]
+    regenie_run: bool
 
     def __post_init__(self):
         """@dataclass automatically calls this method after calling its own __init__().
@@ -40,7 +40,7 @@ class BurdenAssociationPack(AssociationPack):
 
     def __init__(self, association_pack: AssociationPack, tarball_prefixes: List[str],
                  bgen_dict: Dict[str, BGENInformation], run_marker_tests: bool, is_bolt_non_infinite: bool,
-                 regenie_snps_file: Optional[Path], tarball_chunks: List[str], low_mac_list: Path, sparse_grm: Path,
+                 low_mac_list: Path, sparse_grm: Path, has_regenie_step_one: bool,
                  sparse_grm_sample: Path, genetic_filename: str):
         super().__init__(association_pack.is_binary, association_pack.sex, association_pack.threads,
                          association_pack.pheno_names, association_pack.ignore_base_covariates,
@@ -49,12 +49,12 @@ class BurdenAssociationPack(AssociationPack):
                          association_pack.exclusion_samples)
 
         self.tarball_prefixes = tarball_prefixes
-        self.tarball_chunks = tarball_chunks
         self.bgen_dict = bgen_dict
         self.run_marker_tests = run_marker_tests
         self.is_bolt_non_infinite = is_bolt_non_infinite
-        self.regenie_snps_file = regenie_snps_file
         self.low_mac_list = low_mac_list
         self.sparse_grm = sparse_grm
         self.sparse_grm_sample = sparse_grm_sample
         self.genetic_filename = genetic_filename
+        self.has_regenie_step_one = has_regenie_step_one
+
