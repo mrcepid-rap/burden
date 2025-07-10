@@ -21,7 +21,7 @@ class BurdenIngestData(IngestData):
         if len(self.get_association_pack().pheno_names) > 1:
             raise dxpy.AppError('The burden module currently only allows for running one phenotype at a time!')
 
-        is_snp_tar, is_gene_tar, tarball_prefixes, tarball_chunks = ingest_tarballs(parsed_options.association_tarballs)
+        is_snp_tar, is_gene_tar, tarball_prefixes = ingest_tarballs(parsed_options.association_tarballs)
         if is_snp_tar or is_gene_tar:
             raise dxpy.AppError('The burden module is not compatible with SNP or GENE masks!')
 

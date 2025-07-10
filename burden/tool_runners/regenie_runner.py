@@ -5,7 +5,7 @@ from typing import Tuple, List
 import pandas as pd
 from general_utilities.association_resources import define_covariate_string, \
     define_field_names_from_tarball_prefix, bgzip_and_tabix
-from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.import_utils.import_lib import download_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
@@ -39,7 +39,7 @@ class REGENIERunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
             # This makes use of a utility class from AssociationResources since bgen filtering/processing is
             # IDENTICAL to that done for BOLT.
-            thread_utility.launch_job(class_type=process_bgen_file,
+            thread_utility.launch_job(class_type=download_bgen_file,
                                       chrom_bgen_index=self._association_pack.bgen_dict[chromosome]
                                       )
         thread_utility.collect_futures()

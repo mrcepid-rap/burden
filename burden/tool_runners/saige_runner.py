@@ -5,7 +5,7 @@ from typing import List, Tuple
 import pandas as pd
 from general_utilities.association_resources import define_field_names_from_tarball_prefix, \
     bgzip_and_tabix
-from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.import_utils.import_lib import download_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
@@ -26,7 +26,7 @@ class SAIGERunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
             # This makes use of a utility class from AssociationResources since bgen filtering/processing is
             # IDENTICAL to that done for BOLT.
-            thread_utility.launch_job(class_type=process_bgen_file,
+            thread_utility.launch_job(class_type=download_bgen_file,
                                       chrom_bgen_index=self._association_pack.bgen_dict[chromosome]
                                       )
         thread_utility.collect_futures()
@@ -123,7 +123,14 @@ class SAIGERunner(ToolRunner):
     # This is a helper function to parallelise SAIGE step 2 by chromosome
     # This returns the tarball_prefix and chromosome number to make it easier to generate output
     def _saige_step_two(self, tarball_prefix: str, chromosome: str) -> Tuple[str, str, Path]:
+        """
+        Run SAIGE step 2 for a given chromosome.
+        :param tarball_prefix: prefix for the tarball file (input)
+        :param chromosome: chromosome / chunk to run SAIGE on (input)
+        :return: tarball_prefix, chromosome, saige_log_file
+        """
 
+        # NOTE: we might not need to run the function below - make sure to test this (run once with and run once without
         cmd = f'plink2 ' \
               f'--bgen /test/{chromosome}.bgen ref-first ' \
               f'--sample /test/{chromosome}.sample ' \
