@@ -1,10 +1,10 @@
 import csv
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import pandas as pd
 from general_utilities.association_resources import get_chromosomes, define_field_names_from_pandas, bgzip_and_tabix
-from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.import_utils.import_lib import download_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
@@ -27,38 +27,39 @@ class BOLTRunner(ToolRunner):
 
         # The 'poss_chromosomes.txt' has a slightly different format depending on the data-type being used, but
         # generally has a format of <genetics file>\t<fam file>
-        with open(Path('poss_chromosomes.txt'), 'w') as poss_chromosomes:
-            for chromosome in self._association_pack.bgen_dict:
+        possible_chromosomes = Path('poss_chromosomes.txt')
+        with open(possible_chromosomes, 'w') as poss_chromosomes:
+            for chromosome_chunk in self._association_pack.bgen_dict:
                 for tarball_prefix in self._association_pack.tarball_prefixes:
-                    if Path(f'{tarball_prefix}.{chromosome}.BOLT.bgen').exists():
-                        poss_chromosomes.write(f'/test/{tarball_prefix}.{chromosome}.bgen '
-                                               f'/test/{tarball_prefix}.{chromosome}.sample\n')
+                    if Path(f'{tarball_prefix}.{chromosome_chunk}.BOLT.bgen').exists():
                         thread_utility.launch_job(class_type=self._process_bolt_bgen_file,
                                                   tarball_prefix=tarball_prefix,
-                                                  chromosome=chromosome)
+                                                  chromosome=chromosome_chunk)
 
                 if self._association_pack.run_marker_tests:
-                    poss_chromosomes.write(f'/test/{chromosome}.filtered.bgen '
-                                           f'/test/{chromosome}.filtered.sample\n')
                     # This makes use of a utility class from AssociationResources since bgen filtering/processing is
                     # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
-                    thread_utility.launch_job(class_type=process_bgen_file,
-                                              chrom_bgen_index=self._association_pack.bgen_dict[chromosome],
-                                              chromosome=chromosome)
+                    thread_utility.launch_job(class_type=download_bgen_file,
+                                              chrom_bgen_index=self._association_pack.bgen_dict[chromosome_chunk],
+                                              chromosome=chromosome_chunk)
+
+            for result in thread_utility:
+                bgen, sample = result
+                poss_chromosomes.write(f'/test/{bgen} '
+                                       f'/test/{sample}\n')
 
             poss_chromosomes.close()
-            thread_utility.collect_futures()
 
         # 2. Actually run BOLT
         self._logger.info("Running BOLT...")
-        self._run_bolt()
+        self._run_bolt(possible_chromosomes)
 
         # 3. Process the outputs
         self._logger.info("Processing BOLT outputs...")
         self._outputs.extend(self._process_bolt_outputs())
 
     # This handles processing of mask and whole-exome bgen files for input into BOLT
-    def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> Path:
+    def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> Tuple[Path, Path]:
 
         # plink2 has implemented a 'fix' for chrX that does not allow samples without sex. This code adds sex back to
         # the bgen sample file so that plink2 will process the data properly. This is the only way I know how to rename
@@ -104,12 +105,19 @@ class BOLTRunner(ToolRunner):
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
         # Make sure the original sample file is being used, otherwise BOLT complains
-        Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').replace(Path(f'{tarball_prefix}.{chromosome}.sample'))
+        sample_file = Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').replace(Path(f'{tarball_prefix}.{chromosome}.sample'))
 
-        return Path(f'{tarball_prefix}.{chromosome}.bgen')
+        return Path(f'{tarball_prefix}.{chromosome}.bgen'), sample_file
 
     # Run rare variant association testing using BOLT
-    def _run_bolt(self) -> None:
+    def _run_bolt(self, possible_chromosomes: Path) -> None:
+        """
+        Run BOLT on the WES data using the covariates and genetic data provided.
+
+        :param possible_chromosomes: Path to the file containing the list of BGEN files and their sample files.
+        :return: None
+        """
+
 
         # See the README.md for more information on these parameters
         # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
@@ -126,7 +134,7 @@ class BOLTRunner(ToolRunner):
               f'--numThreads={self._association_pack.threads} ' \
               f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
               f'--verboseStats ' \
-              f'--bgenSampleFileList=/test/poss_chromosomes.txt ' \
+              f'--bgenSampleFileList=/test/{possible_chromosomes.name} ' \
               f'--noBgenIDcheck ' \
               f'--LDscoresMatchBp ' \
               f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz '
@@ -227,8 +235,8 @@ class BOLTRunner(ToolRunner):
         if self._association_pack.run_marker_tests:
             variant_index = []
             # Open all chromosome indicies and load them into a list and append them together
-            for chromosome in self._association_pack.bgen_dict:
-                variant_index.append(pd.read_csv(f'{chromosome}.filtered.vep.tsv.gz',
+            for chromosome_chunk in self._association_pack.bgen_dict:
+                variant_index.append(pd.read_csv(f'{chromosome_chunk}.filtered.vep.tsv.gz',
                                                  sep="\t",
                                                  dtype={'SIFT': str, 'POLYPHEN': str}))
 

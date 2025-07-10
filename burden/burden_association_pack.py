@@ -21,7 +21,7 @@ class BurdenProgramArgs(ProgramArgs):
     sparse_grm: InputFileHandler
     sparse_grm_sample: InputFileHandler
     bolt_non_infinite: bool
-    regenie_run: bool
+    regenie_run: InputFileHandler
 
     def __post_init__(self):
         """@dataclass automatically calls this method after calling its own __init__().
