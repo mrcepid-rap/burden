@@ -131,24 +131,30 @@ class SAIGERunner(ToolRunner):
         """
 
         # NOTE: we might not need to run the function below - make sure to test this (run once with and run once without
-        cmd = f'plink2 ' \
-              f'--bgen /test/{chromosome}.bgen ref-first ' \
-              f'--sample /test/{chromosome}.sample ' \
-              f'--export bgen-1.2 bits=8 ' \
-              f'--out /test/{chromosome}_filtered '
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
+        # ACTION - we are going to run this function with the new Duat data
+        # 1. run as it is now
+        # 2. run with the addition of a filtered sample file and a flag (if exists) that can be used to filter
+        # 3. run with the plink filtering command (worst case scenario) to filter the bgen file by sample inclusion
 
-        cmd = f'bgenix -g /test/{chromosome}_filtered.bgen -index'
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
+
+        # cmd = f'plink2 ' \
+        #       f'--bgen /test/{chromosome}.bgen ref-first ' \
+        #       f'--sample /test/{chromosome}.sample ' \
+        #       f'--export bgen-1.2 bits=8 ' \
+        #       f'--out /test/{chromosome}_filtered '
+        # self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
+        #
+        # cmd = f'bgenix -g /test/{chromosome}_filtered.bgen -index'
+        # self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
         # chromsomes should be stripped of the extras
         chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
 
         # See the README.md for more information on these parameters
         cmd = f'step2_SPAtests.R ' \
-              f'--bgenFile=/test/{chromosome}_filtered.bgen ' \
-              f'--bgenFileIndex=/test/{chromosome}_filtered.bgen.bgi ' \
-              f'--sampleFile=/test/{chromosome}_filtered.sample ' \
+              f'--bgenFile=/test/{chromosome}.bgen ' \
+              f'--bgenFileIndex=/test/{chromosome}.bgen.bgi ' \
+              f'--sampleFile=/test/{chromosome}.sample ' \
               f'--AlleleOrder=ref-first ' \
               f'--GMMATmodelFile=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda ' \
               f'--sparseGRMFile=/test/{self._association_pack.sparse_grm.name} ' \
