@@ -79,6 +79,10 @@ class REGENIERunner(ToolRunner):
 
         self._outputs.append(regenie_step2_genes_log)
 
+        # Always add predictions...
+        self._outputs.append(Path('fit_out_pred.list'))
+        self._outputs.extend(Path('./').glob('fit_out_*.loco'))
+
         # 5. Process outputs
         self._logger.info("Processing REGENIE outputs...")
         self._outputs.extend(self._annotate_regenie_output(completed_gene_tables))
