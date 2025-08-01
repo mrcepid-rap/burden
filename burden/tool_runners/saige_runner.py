@@ -1,19 +1,35 @@
-import pandas as pd
-
-from typing import List, Tuple
+import re
 from pathlib import Path
+from typing import List, Tuple
 
-from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.association_resources import get_chromosomes, define_field_names_from_tarball_prefix,\
+import pandas as pd
+from general_utilities.association_resources import define_field_names_from_tarball_prefix, \
     bgzip_and_tabix
-from general_utilities.import_utils.import_lib import process_bgen_file
+from general_utilities.import_utils.import_lib import download_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
+
+from burden.tool_runners.tool_runner import ToolRunner
 
 
 class SAIGERunner(ToolRunner):
 
     def run_tool(self) -> None:
+
+        # Prep bgen files for a run:
+        self._logger.info("Downloading and filtering raw bgen files")
+        thread_utility = ThreadUtility(self._association_pack.threads,
+                                       error_message='A SAIGE bgen thread failed',
+                                       incrementor=10,
+                                       thread_factor=4)
+
+        for chromosome in self._association_pack.bgen_dict:
+            # This makes use of a utility class from AssociationResources since bgen filtering/processing is
+            # IDENTICAL to that done for BOLT.
+            thread_utility.launch_job(class_type=download_bgen_file,
+                                      chrom_bgen_index=self._association_pack.bgen_dict[chromosome]
+                                      )
+        thread_utility.collect_futures()
 
         # 1. Run SAIGE step one without parallelisation
         self._logger.info("Running SAIGE step 1...")
@@ -22,14 +38,15 @@ class SAIGERunner(ToolRunner):
         # 2. Run SAIGE step two WITH parallelisation by chromosome
         self._logger.info("Running SAIGE step 2...")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A SAIGE thread failed', 
-                                       incrementor=10, 
+                                       error_message='A SAIGE thread failed',
+                                       incrementor=10,
                                        thread_factor=1)
-        
-        for chromosome in get_chromosomes():
+
+        for chromosome in self._association_pack.bgen_dict:
             for tarball_prefix in self._association_pack.tarball_prefixes:
-                if Path(tarball_prefix + "." + chromosome + ".SAIGE.bcf").exists():
-                    self._prep_group_file(tarball_prefix, chromosome)
+                # changing this to search for BOLT files because we are now using these
+                # as our .bgen inputs
+                if Path(chromosome + ".bgen").exists():
                     thread_utility.launch_job(class_type=self._saige_step_two,
                                               tarball_prefix=tarball_prefix,
                                               chromosome=chromosome)
@@ -50,33 +67,9 @@ class SAIGERunner(ToolRunner):
                         saige_step2_genes_writer.write(line)
         self._outputs.append(saige_step2_gene_log)
 
-        # 4. Run per-marker tests, if requested
-        completed_marker_chromosomes = []
-        if self._association_pack.run_marker_tests:
-            self._logger.info("Running per-marker tests...")
-            thread_utility = ThreadUtility(self._association_pack.threads,
-                                           error_message='A SAIGE marker thread failed',
-                                           incrementor=1,
-                                           thread_factor=4)
-
-            for chromosome in get_chromosomes():
-                thread_utility.launch_job(class_type=self._saige_marker_run,
-                                          chromosome=chromosome)
-                completed_marker_chromosomes.append(chromosome)
-
-            saige_step2_markers_log = Path(f'{self._output_prefix}.SAIGE_step2.log')
-            with saige_step2_markers_log.open('w') as saige_step2_markers_writer:
-                for result in thread_utility:
-                    finished_chromosome, current_log = result
-                    saige_step2_markers_writer.write(f'{finished_chromosome + ".log":{"-"}^{50}}')
-                    with current_log.open('r') as current_log_reader:
-                        for line in current_log_reader:
-                            saige_step2_markers_writer.write(line)
-            self._outputs.append(saige_step2_markers_log)
-
-        # 5. Process final results
+        # 4. Process final results
         self._logger.info("Processing final SAIGE output...")
-        self._outputs.extend(self._annotate_saige_output(completed_gene_tables, completed_marker_chromosomes))
+        self._outputs.extend(self._annotate_saige_output(completed_gene_tables))
 
     # Run rare variant association testing using SAIGE-GENE
     def _saige_step_one(self) -> Path:
@@ -86,18 +79,18 @@ class SAIGERunner(ToolRunner):
         # there are too few low MAC variants in the genotype files to perform this step accurately. The SAIGE
         # documentation includes this step, but I am very unsure how it works...
         cmd = f'step1_fitNULLGLMM.R ' \
-                    f'--phenoFile=/test/phenotypes_covariates.formatted.txt ' \
-                    f'--phenoCol={self._association_pack.pheno_names[0]} ' \
-                    f'--isCovariateTransform=FALSE ' \
-                    f'--sampleIDColinphenoFile=IID ' \
-                    f'--outputPrefix=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT ' \
-                    f'--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
-                    f'--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
-                    f'--nThreads={self._association_pack.threads} ' \
-                    f'--LOCO=FALSE ' \
-                    f'--skipModelFitting=FALSE ' \
-                    f'--useSparseGRMtoFitNULL=TRUE ' \
-                    f'--skipVarianceRatioEstimation=TRUE '
+              f'--phenoFile=/test/{self._association_pack.final_covariates} ' \
+              f'--phenoCol={self._association_pack.pheno_names[0]} ' \
+              f'--isCovariateTransform=FALSE ' \
+              f'--sampleIDColinphenoFile=IID ' \
+              f'--outputPrefix=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT ' \
+              f'--sparseGRMFile=/test/{self._association_pack.sparse_grm.name} ' \
+              f'--sparseGRMSampleIDFile=/test/{self._association_pack.sparse_grm_sample.name} ' \
+              f'--nThreads={self._association_pack.threads} ' \
+              f'--LOCO=FALSE ' \
+              f'--skipModelFitting=FALSE ' \
+              f'--useSparseGRMtoFitNULL=TRUE ' \
+              f'--skipVarianceRatioEstimation=TRUE '
         if self._association_pack.is_binary:
             cmd = cmd + f'--traitType=binary '
         else:
@@ -127,56 +120,40 @@ class SAIGERunner(ToolRunner):
 
         return saige_log_file
 
-    # This exists for a very stupid reason – they _heavily_ modified the groupFile for v1.0 and I haven't gone back
-    # to change how this file is made in 'collapse variants'
-    @staticmethod
-    def _prep_group_file(tarball_prefix: str, chromosome: str) -> None:
-
-        with open(tarball_prefix + '.' + chromosome + '.SAIGE.groupFile.txt', 'r') as group_file:
-            modified_group = open(tarball_prefix + '.' + chromosome + '.SAIGE_v1.0.groupFile.txt', 'w')
-            for line in group_file:
-                data = line.rstrip().split('\t')
-                mod_data = [data[0], 'var']
-                found = set()
-                for var in data[1:]:
-                    var = var.translate(str.maketrans('_/', '::'))
-                    if var not in found:
-                        mod_data.append(var)
-                        found.add(var)
-                modified_group.writelines(' '.join(mod_data) + "\n")
-                mod_annote = [data[0], 'anno']
-                for i in range(2, len(mod_data)):
-                    mod_annote.append('foo')
-                modified_group.write(' '.join(mod_annote) + "\n")
-            group_file.close()
-            modified_group.close()
-
     # This is a helper function to parallelise SAIGE step 2 by chromosome
     # This returns the tarball_prefix and chromosome number to make it easier to generate output
     def _saige_step_two(self, tarball_prefix: str, chromosome: str) -> Tuple[str, str, Path]:
+        """
+        Run SAIGE step 2 for a given chromosome.
+        :param tarball_prefix: prefix for the tarball file (input)
+        :param chromosome: chromosome / chunk to run SAIGE on (input)
+        :return: tarball_prefix, chromosome, saige_log_file
+        """
 
-        cmd = f'bcftools view --threads 1 -S /test/SAMPLES_Include.bcf.txt -Ob ' \
-              f'-o /test/{tarball_prefix}.{chromosome}.saige_input.bcf ' \
-              f'/test/{tarball_prefix}.{chromosome}.SAIGE.bcf'
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
+        # ACTION - we are going to run this function with the new Duat data
+        # 1. run as it is now
+        # 2. run with the addition of a filtered sample file and a flag (if exists) that can be used to filter
+        # 3. run with a plink filtering command (worst case scenario) to filter the bgen file by sample inclusion
 
-        cmd = f'bcftools index --threads 1 /test/{tarball_prefix}.{chromosome}.saige_input.bcf'
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
-        
+        # chromsomes should be stripped of the extras
+        chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
+
         # See the README.md for more information on these parameters
         cmd = f'step2_SPAtests.R ' \
-              f'--vcfFile=/test/{tarball_prefix}.{chromosome}.saige_input.bcf ' \
-              f'--vcfField=GT ' \
+              f'--bgenFile=/test/{chromosome}.bgen ' \
+              f'--bgenFileIndex=/test/{chromosome}.bgen.bgi ' \
+              f'--sampleFile=/test/{chromosome}.sample ' \
+              f'--AlleleOrder=ref-first ' \
               f'--GMMATmodelFile=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda ' \
-              f'--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
-              f'--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
+              f'--sparseGRMFile=/test/{self._association_pack.sparse_grm.name} ' \
+              f'--sparseGRMSampleIDFile=/test/{self._association_pack.sparse_grm_sample.name} ' \
               f'--LOCO=FALSE ' \
               f'--SAIGEOutputFile=/test/{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt ' \
-              f'--groupFile=/test/{tarball_prefix}.{chromosome}.SAIGE_v1.0.groupFile.txt ' \
+              f'--groupFile=/test/{tarball_prefix}.{chromosome}.SAIGE.groupFile.txt ' \
               f'--is_output_moreDetails=TRUE ' \
               f'--maxMAF_in_groupTest=0.5 ' \
               f'--maxMissing=1 ' \
-              f'--chrom={chromosome} ' \
+              f'--chrom={chromosome_num} ' \
               f'--annotation_in_groupTest=foo '
 
         if self._association_pack.is_binary:
@@ -187,31 +164,7 @@ class SAIGERunner(ToolRunner):
 
         return tarball_prefix, chromosome, saige_log_file
 
-    def _saige_marker_run(self, chromosome: str) -> Tuple[str, Path]:
-
-        process_bgen_file(self._association_pack.bgen_dict[chromosome], chromosome)
-
-        cmd = 'step2_SPAtests.R ' \
-              f'--bgenFile=/test/filtered_bgen/{chromosome}.filtered.bgen ' \
-              f'--bgenFileIndex=/test/filtered_bgen/{chromosome}.filtered.bgen.bgi ' \
-              f'--sampleFile=/test/filtered_bgen/{chromosome}.filtered.sample ' \
-              f'--GMMATmodelFile=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda ' \
-              '--sparseGRMFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx ' \
-              '--sparseGRMSampleIDFile=/test/genetics/sparseGRM_470K_Autosomes_QCd.sparseGRM.mtx.sampleIDs.txt ' \
-              f'--SAIGEOutputFile=/test/{chromosome}.SAIGE_OUT.SAIGE.markers.txt ' \
-              '--LOCO=FALSE ' \
-              '--is_output_moreDetails=TRUE ' \
-              '--maxMissing=1 '
-        if self._association_pack.is_binary:
-            cmd = cmd + '--is_Firth_beta=TRUE'
-
-        saige_log_file = Path(f'{chromosome}.SAIGE_markers.log')
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=saige_log_file)
-
-        return chromosome, saige_log_file
-
     def _process_saige_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
-
         # Load the raw table
         saige_table = pd.read_csv(tarball_prefix + "." + chromosome + ".SAIGE_OUT.SAIGE.gene.txt", sep='\t')
         saige_table = saige_table.rename(columns={'Region': 'ENST'})
@@ -222,8 +175,7 @@ class SAIGERunner(ToolRunner):
 
         return saige_table
 
-    def _annotate_saige_output(self, completed_gene_tables: list, completed_marker_chromosomes: list) -> List[Path]:
-
+    def _annotate_saige_output(self, completed_gene_tables: list) -> List[Path]:
         # Create an output array
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
         plot_dir.mkdir()
@@ -263,38 +215,5 @@ class SAIGERunner(ToolRunner):
 
         # And bgzip and tabix...
         outputs.extend(bgzip_and_tabix(saige_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
-
-        if self._association_pack.run_marker_tests:
-
-            variant_index = []
-            saige_table_marker = []
-            # Open all chromosome indicies and load them into a list and append them together
-            for chromosome in completed_marker_chromosomes:
-                variant_index.append(pd.read_csv(f'filtered_bgen/{chromosome}.filtered.vep.tsv.gz',
-                                                 sep="\t",
-                                                 dtype={'SIFT': str, 'POLYPHEN': str}))
-                saige_table_marker.append(pd.read_csv(chromosome + ".SAIGE_OUT.SAIGE.markers.txt", sep="\t"))
-
-            variant_index = pd.concat(variant_index)
-            variant_index = variant_index.set_index('varID')
-
-            saige_table_marker = pd.concat(saige_table_marker)
-
-            # For markers, we can use the SNP ID column to get what we need
-            saige_table_marker = saige_table_marker.rename(columns={'MarkerID': 'varID',
-                                                                    'AC_Allele2': 'SAIGE_AC',
-                                                                    'AF_Allele2': 'SAIGE_MAF'})
-            saige_table_marker = saige_table_marker.drop(columns=['CHR', 'POS', 'Allele1', 'Allele2', 'MissingRate'])
-
-            saige_table_marker = pd.merge(variant_index, saige_table_marker, on='varID', how="left")
-            saige_marker_path = Path(f'{self._output_prefix}.markers.SAIGE.stats.tsv')
-            with saige_marker_path.open('w') as marker_out:
-                # Sort by chrom/pos just to be sure...
-                saige_table_marker = saige_table_marker.sort_values(by=['CHROM', 'POS'])
-
-                saige_table_marker.to_csv(path_or_buf=marker_out, index=False, sep="\t", na_rep='NA')
-
-            # And bgzip and tabix...
-            outputs.extend(bgzip_and_tabix(saige_marker_path, skip_row=1, sequence_row=2, begin_row=3))
 
         return outputs
