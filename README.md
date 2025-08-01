@@ -49,43 +49,6 @@ Information about files and projects can be queried using the `dx describe` tool
 dx describe file-1234567890ABCDEFGHIJKLMN
 ```
 
-### Changelog
-
-* v1.1.7
-  * Small bug fixes:
-    * Removed method option to reflect changes in ingest_tarballs method from [general_utilities](https://github.com/mrcepid-rap/general_utilities) by @ejgardner-insmed in https://github.com/mrcepid-rap/burden/pull/9
-    * Fixed an issue with the updated version of plink2 causing issues with chromosomeX by @ejgardner-insmed in https://github.com/mrcepid-rap/burden/pull/10
-      * This was accomplished by encoding all individuals as females to avoid hemizygous calls. **PLEASE CHECK CHRX RESULTS FOR CONSISTENCY**
-
-* v1.1.6
-  * Added Manhattan plotting to all burden tools
-  * tool_runner now creates the transcript table on initialisation, rather than each tool independently
-
-* v1.1.5
-  * Large number of general changes affecting all runassociationtesting modules. Please see the [RunAssociationTesting README](https://github.com/mrcepid-rap/mrcepid-runassociationtesting/blob/main/Readme.md) for more information
-  * Users should see an ~1h runtime speedup due to how filtered WES bgen files are downloaded / processed
-
-* v1.1.4
-  * Implemented the CommandExecutor class
-
-* v1.1.3
-  * Implemented _check_opts method for interface compatibility
-  * Minor README changes to reflect changes in linear model code refactoring 
-
-* v1.1.2
-  * Internally changed return types from str to Path to enable compatibility with updated utilities
-  * Minor method parameters change to covariate processing when running burden tests for compatibility
-    * No changes were made to methodology
-
-* v1.1.1
-  * Minor changes to BOLT commands to facilitate BOLT upgrade to v2.4.1
-
-* v1.1.0
-  * Start of major effort to annotate code better and provide unit tests for functionality
-
-* v1.0.0
-  * Initial release. The functionality of this module was formally embedded in RunAssociationTesting
-
 ### Background
 
 This module performs rare-variant burden tests to 

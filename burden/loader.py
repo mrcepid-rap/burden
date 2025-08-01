@@ -1,10 +1,10 @@
-import dxpy
-
 from typing import Type
+
+import dxpy
+from general_utilities.import_utils.module_loader.module_loader import ModuleLoader
 
 from burden import burden_ingester
 from burden.burden_association_pack import BurdenProgramArgs, BurdenAssociationPack
-from general_utilities.import_utils.module_loader.module_loader import ModuleLoader
 from burden.tool_runners.bolt_runner import BOLTRunner
 from burden.tool_runners.glm_runner import GLMRunner
 from burden.tool_runners.regenie_runner import REGENIERunner
@@ -28,6 +28,7 @@ class LoadModule(ModuleLoader):
         # every possible tool is a subclass of 'ToolRunner' with a required method of 'run_tool' we should be OK.
         current_tool = current_class(self.association_pack,
                                      self.output_prefix)
+
         current_tool.run_tool()
 
         # Retrieve outputs – all tools _should_ append to the outputs object so they can be retrieved here.
@@ -89,30 +90,33 @@ class LoadModule(ModuleLoader):
                                        "this can drastically increase runtimes, especially when analysing the "
                                        "entire UKBB dataset.",
                                   dest='bolt_non_infinite', action='store_true')
-        self._parser.add_argument('--regenie_smaller_snps',
-                                  help="Run REGENIE with the smaller subset of SNPs used for relatedness calculations "
-                                       "in Bycroft et al. Input for this parameter is the file ID of the SNP qc file "
-                                       "provided by the UKBB "
-                                       "[typically located at /Bulk/Genotype Results/Genotype calls/ukb_snp_qc.txt].",
-                                  type=self.dxfile_input, dest='regenie_smaller_snps', required=False,
-                                  default='None')
+        self._parser.add_argument('--regenie_run',
+                                  help="A file containing results from a previous REGENIE burden analysis"
+                                       "with step1 already completed. MUST contain results for identical phenotype"
+                                       "and covariates.",
+                                  type=self.dxfile_input, dest='regenie_run', required=False,
+                                  metavar=example_dxfile)
+
 
     def _parse_options(self) -> BurdenProgramArgs:
         return BurdenProgramArgs(**vars(self._parser.parse_args(self._split_options(self._input_args))))
 
     def _ingest_data(self, parsed_options: BurdenProgramArgs) -> BurdenAssociationPack:
         ingested_data = burden_ingester.BurdenIngestData(parsed_options)
+
         return ingested_data.get_association_pack()
 
     # Just defines possible tools usable by this module
     @staticmethod
     def check_tools(input_tool) -> Type[ToolRunner]:
 
-        module_tools = {'bolt': BOLTRunner,
-                        'saige': SAIGERunner,
-                        'regenie': REGENIERunner,
-                        'staar': STAARRunner,
-                        'glm': GLMRunner}
+        module_tools = {
+            'bolt': BOLTRunner,
+            'saige': SAIGERunner,
+            'regenie': REGENIERunner
+            #'staar': STAARRunner,
+            #'glm': GLMRunner
+        }
         if input_tool in module_tools:
             return module_tools[input_tool]
         else:
