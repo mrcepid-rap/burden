@@ -16,7 +16,7 @@ class ToolRunner(ABC):
         self._output_prefix = output_prefix
         self._outputs = []
         self._sample_count = len(get_include_sample_ids())
-        self._transcripts_table = build_transcript_table()
+        self._transcripts_table = build_transcript_table(self._association_pack.transcript_index)
 
     def get_outputs(self) -> List[Path]:
         return self._outputs

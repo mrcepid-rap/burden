@@ -46,7 +46,7 @@ class BurdenAssociationPack(AssociationPack):
                          association_pack.pheno_names, association_pack.ignore_base_covariates,
                          association_pack.found_quantitative_covariates, association_pack.found_categorical_covariates,
                          association_pack.cmd_executor, association_pack.final_covariates, association_pack.inclusion_samples,
-                         association_pack.exclusion_samples)
+                         association_pack.exclusion_samples, association_pack.transcript_index)
 
         self.tarball_prefixes = tarball_prefixes
         self.bgen_dict = bgen_dict

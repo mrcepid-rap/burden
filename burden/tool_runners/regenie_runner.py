@@ -32,32 +32,40 @@ class REGENIERunner(ToolRunner):
         # # 2. Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A REGENIE bgen thread failed',
-                                       incrementor=10,
                                        thread_factor=4)
 
         for chromosome in self._association_pack.bgen_dict:
             # This makes use of a utility class from AssociationResources since bgen filtering/processing is
             # IDENTICAL to that done for BOLT.
-            thread_utility.launch_job(class_type=download_bgen_file,
-                                      chrom_bgen_index=self._association_pack.bgen_dict[chromosome]
+            thread_utility.launch_job(function=download_bgen_file,
+                                      inputs={
+                                          "chrom_bgen_index": self._association_pack.bgen_dict[chromosome]
+                                      }
                                       )
-        thread_utility.collect_futures()
+        thread_utility.submit_and_monitor()
 
         # 4. Run step 2 of regenie
         self._logger.info("Running REGENIE step 2")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A REGENIE step 2 thread failed',
-                                       incrementor=10,
                                        thread_factor=1)
         for chromosome in self._association_pack.bgen_dict:
             for tarball_prefix in self._association_pack.tarball_prefixes:
                 # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
                 if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
                     # print all files in directory
-                    thread_utility.launch_job(self._run_regenie_step_two,
-                                              tarball_prefix=tarball_prefix,
-                                              chromosome=chromosome)
+                    thread_utility.launch_job(function=self._run_regenie_step_two,
+                                              inputs={
+                                                  "tarball_prefix": tarball_prefix,
+                                                  "chromosome": chromosome
+                                              },
+                                              outputs=[
+                                                  "tarball_prefix",
+                                                  "finished_chromosome",
+                                                  "current_log"
+                                              ]
+                                              )
+
+        thread_utility.submit_and_monitor()
 
         # Gather preliminary results from step 2:
         self._logger.info("Gathering REGENIE mask-based results...")
@@ -94,13 +102,16 @@ class REGENIERunner(ToolRunner):
         # 1. Select variants from --extract (if present)
         # 2. THEN filter based on max/min AC (mac/max-mac)
         max_mac = (self._sample_count * 2) - 100
-        cmd = f'plink2 --bfile /test/{self._association_pack.genetic_filename} ' \
-              f'--min-ac 100 ' \
+        cmd = f"plink2 --bed {self._association_pack.genetic_filename}.bed " \
+              f"--bim {self._association_pack.genetic_filename}.bim " \
+              f"--fam {self._association_pack.genetic_filename}.fam " \
+              f"--min-ac 100 " \
               f'--max-ac {str(max_mac)}' \
               f' --write-snplist ' \
-              f'--out /test/REGENIE_extract'
+              f'--out REGENIE_extract'
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
-        with open('plink_out.txt', 'r') as plink_out:
+        with open('REGENIE_extract.snplist', 'r') as plink_out:
             for line in plink_out:
                 found_snp_count = re.search('(\\d+) variants remaining after main filters', line)
                 if found_snp_count is not None:
@@ -109,13 +120,13 @@ class REGENIERunner(ToolRunner):
 
         cmd = 'regenie ' \
               '--step 1 ' \
-              f'--bed /test/{self._association_pack.genetic_filename} ' \
-              '--extract /test/REGENIE_extract.snplist ' \
-              f'--covarFile /test/{self._association_pack.final_covariates} ' \
-              f'--phenoFile /test/{self._association_pack.final_covariates} ' \
+              f'--bed {self._association_pack.genetic_filename} ' \
+              '--extract REGENIE_extract.snplist ' \
+              f'--covarFile {self._association_pack.final_covariates} ' \
+              f'--phenoFile {self._association_pack.final_covariates} ' \
               '--maxCatLevels 110 ' \
               '--bsize 1000 ' \
-              '--out /test/fit_out ' \
+              '--out fit_out ' \
               f'--threads {str(self._association_pack.threads)} ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} '
 
@@ -134,16 +145,16 @@ class REGENIERunner(ToolRunner):
         # Note – there is some issue with skato (in --vc-tests flag), so I have changed to skato-acat which works...?
         cmd = f'regenie ' \
               f'--step 2 ' \
-              f'--bgen /test/{chromosome}.bgen ' \
-              f'--sample /test/{chromosome}.sample ' \
-              f'--keep /test/SAMPLES_Include.txt ' \
-              f'--covarFile /test/{self._association_pack.final_covariates} ' \
-              f'--phenoFile /test/{self._association_pack.final_covariates} ' \
+              f'--bgen {self._association_pack.bgen_dict[chromosome]["bgen"].get_file_handle()} ' \
+              f'--sample {self._association_pack.bgen_dict[chromosome]["sample"].get_file_handle()} ' \
+              f'--keep SAMPLES_Include.txt ' \
+              f'--covarFile {self._association_pack.final_covariates} ' \
+              f'--phenoFile {self._association_pack.final_covariates} ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} ' \
-              f'--pred /test/fit_out_pred.list ' \
-              f'--anno-file /test/{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt ' \
-              f'--mask-def /test/{tarball_prefix}.{chromosome}.REGENIE.maskfile.txt ' \
-              f'--set-list /test/{tarball_prefix}.{chromosome}.REGENIE.setListFile.txt ' \
+              f'--pred fit_out_pred.list ' \
+              f'--anno-file {tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt ' \
+              f'--mask-def {tarball_prefix}.{chromosome}.REGENIE.maskfile.txt ' \
+              f'--set-list {tarball_prefix}.{chromosome}.REGENIE.setListFile.txt ' \
               f'--aaf-bins 1 ' \
               f'--vc-tests skato-acat,acato-full ' \
               f'--bsize 400 ' \
@@ -151,7 +162,7 @@ class REGENIERunner(ToolRunner):
               f'--minMAC 1 ' \
               f'--ref-first ' \
               f'--maxCatLevels 110 ' \
-              f'--out /test/{tarball_prefix}.{chromosome} '
+              f'--out {tarball_prefix}.{chromosome} '
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,

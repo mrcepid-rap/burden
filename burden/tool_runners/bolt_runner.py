@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 import pandas as pd
-from general_utilities.association_resources import get_chromosomes, define_field_names_from_pandas, bgzip_and_tabix
+from general_utilities.association_resources import define_field_names_from_pandas, bgzip_and_tabix
 from general_utilities.import_utils.import_lib import download_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
@@ -21,8 +21,6 @@ class BOLTRunner(ToolRunner):
         # 1. First we need to download / prep the BGEN files we want to run through BOLT
         self._logger.info("Processing BGEN files for BOLT run...")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A BOLT thread failed',
-                                       incrementor=10,
                                        thread_factor=4)
 
         # The 'poss_chromosomes.txt' has a slightly different format depending on the data-type being used, but
@@ -32,21 +30,32 @@ class BOLTRunner(ToolRunner):
             for chromosome_chunk in self._association_pack.bgen_dict:
                 for tarball_prefix in self._association_pack.tarball_prefixes:
                     if Path(f'{tarball_prefix}.{chromosome_chunk}.BOLT.bgen').exists():
-                        thread_utility.launch_job(class_type=self._process_bolt_bgen_file,
-                                                  tarball_prefix=tarball_prefix,
-                                                  chromosome=chromosome_chunk)
-
-                if self._association_pack.run_marker_tests:
-                    # This makes use of a utility class from AssociationResources since bgen filtering/processing is
-                    # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
-                    thread_utility.launch_job(class_type=download_bgen_file,
-                                              chrom_bgen_index=self._association_pack.bgen_dict[chromosome_chunk],
-                                              chromosome=chromosome_chunk)
+                        thread_utility.launch_job(
+                            function=self._process_bolt_bgen_file,
+                            inputs={
+                                'tarball_prefix': tarball_prefix,
+                                'chromosome': chromosome_chunk
+                            },
+                            outputs=["bgen_output", "sample_file"]
+                        )
+                    if self._association_pack.run_marker_tests:
+                        # This makes use of a utility class from AssociationResources since bgen filtering/processing is
+                        # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
+                        download_utility = ThreadUtility(self._association_pack.threads, thread_factor=4)
+                        download_utility.launch_job(
+                            function=download_bgen_file,
+                            inputs={
+                                "chrom_bgen_index": self._association_pack.bgen_dict[chromosome_chunk],
+                                "chromosome": chromosome_chunk,
+                            }
+                        )
+                        download_utility.submit_and_monitor()
+            thread_utility.submit_and_monitor()
 
             for result in thread_utility:
                 bgen, sample = result
-                poss_chromosomes.write(f'/test/{bgen} '
-                                       f'/test/{sample}\n')
+                poss_chromosomes.write(f'{bgen} '
+                                       f'{sample}\n')
 
             poss_chromosomes.close()
 
@@ -83,10 +92,10 @@ class BOLTRunner(ToolRunner):
 
         # Do the mask first...
         # We need to modify the bgen file to have an alternate name for IDing masks
-        cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-first\' ' \
-              f'--out /test/{tarball_prefix}.{chromosome} ' \
+        cmd = f'plink2 --threads 4 --bgen {tarball_prefix}.{chromosome}.BOLT.bgen \'ref-first\' ' \
+              f'--out {tarball_prefix}.{chromosome} ' \
               f'--make-just-pvar ' \
-              f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
+              f'--sample {tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
               f'--split-par hg38'
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
@@ -96,18 +105,22 @@ class BOLTRunner(ToolRunner):
                 fix_writer.write(f'{variant_id["ID"]} {variant_id["ID"]}-{tarball_prefix}\n')
             fix_writer.close()
 
-        cmd = f'plink2 --threads 4 --bgen /test/{tarball_prefix}.{chromosome}.BOLT.bgen \'ref-first\' ' \
-              f'--sample /test/{tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
-              f'--update-name /test/{tarball_prefix}.{chromosome}.fixer ' \
+        cmd = f'plink2 --threads 4 --bgen {tarball_prefix}.{chromosome}.BOLT.bgen \'ref-first\' ' \
+              f'--sample {tarball_prefix}.{chromosome}.BOLT.fix.sample ' \
+              f'--update-name {tarball_prefix}.{chromosome}.fixer ' \
               f'--export bgen-1.2 \'bits=\'8 ' \
               f'--split-par hg38 ' \
-              f'--out /test/{tarball_prefix}.{chromosome} '
+              f'--out {tarball_prefix}.{chromosome} '
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
         # Make sure the original sample file is being used, otherwise BOLT complains
-        sample_file = Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').replace(Path(f'{tarball_prefix}.{chromosome}.sample'))
+        sample_file = Path(f'{tarball_prefix}.{chromosome}.BOLT.sample').replace(
+            Path(f'{tarball_prefix}.{chromosome}.sample'))
 
-        return Path(f'{tarball_prefix}.{chromosome}.bgen'), sample_file
+        # set the output file
+        bgen_output = Path(f'{tarball_prefix}.{chromosome}.bgen')
+
+        return bgen_output, sample_file
 
     # Run rare variant association testing using BOLT
     def _run_bolt(self, possible_chromosomes: Path) -> None:
@@ -118,26 +131,27 @@ class BOLTRunner(ToolRunner):
         :return: None
         """
 
-
         # See the README.md for more information on these parameters
         # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
         # REMEMBER we do --noBgenIDcheck because the genetic data is filtered to the covariate file, the bgens are NOT
         cmd = f'bolt ' + \
-              f'--bfile=/test/{self._association_pack.genetic_filename} ' \
-              f'--exclude=/test/{self._association_pack.low_mac_list.name} ' \
-              f'--phenoFile=/test/{self._association_pack.final_covariates} ' \
+              f'--bed={self._association_pack.genetic_filename}.bed ' \
+              f'--bim={self._association_pack.genetic_filename}.bim ' \
+              f'--fam={self._association_pack.genetic_filename}.fam ' \
+              f'--exclude={self._association_pack.low_mac_list} ' \
+              f'--phenoFile={self._association_pack.final_covariates} ' \
               f'--phenoCol={self._association_pack.pheno_names[0]} ' \
-              f'--covarFile=/test/{self._association_pack.final_covariates} ' \
+              f'--covarFile={self._association_pack.final_covariates} ' \
               f'--covarMaxLevels=110 ' \
               f'--LDscoresFile=BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
               f'--geneticMapFile=BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
               f'--numThreads={self._association_pack.threads} ' \
-              f'--statsFile=/test/{self._output_prefix}.stats.gz ' \
+              f'--statsFile={self._output_prefix}.stats.gz ' \
               f'--verboseStats ' \
-              f'--bgenSampleFileList=/test/{possible_chromosomes.name} ' \
+              f'--bgenSampleFileList={possible_chromosomes.name} ' \
               f'--noBgenIDcheck ' \
               f'--LDscoresMatchBp ' \
-              f'--statsFileBgenSnps=/test/{self._output_prefix}.bgen.stats.gz '
+              f'--statsFileBgenSnps={self._output_prefix}.bgen.stats.gz '
 
         if self._association_pack.is_bolt_non_infinite:
             cmd += '--lmmForceNonInf '
@@ -228,7 +242,6 @@ class BOLTRunner(ToolRunner):
 
         # And bgzip and tabix...
         outputs.extend(bgzip_and_tabix(stats_path, skip_row=1, sequence_row=2, begin_row=3, end_row=4))
-
 
         # And now process the SNP file (if necessary):
         # Read in the variant index (per-chromosome and mash together)
