@@ -19,17 +19,15 @@ class SAIGERunner(ToolRunner):
         # Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A SAIGE bgen thread failed',
-                                       incrementor=10,
                                        thread_factor=4)
 
         for chromosome in self._association_pack.bgen_dict:
             # This makes use of a utility class from AssociationResources since bgen filtering/processing is
             # IDENTICAL to that done for BOLT.
-            thread_utility.launch_job(class_type=download_bgen_file,
-                                      chrom_bgen_index=self._association_pack.bgen_dict[chromosome]
-                                      )
-        thread_utility.collect_futures()
+            thread_utility.launch_job(
+                function=download_bgen_file,
+                inputs={'chrom_bgen_index': self._association_pack.bgen_dict[chromosome]})
+        thread_utility.submit_and_monitor()
 
         # 1. Run SAIGE step one without parallelisation
         self._logger.info("Running SAIGE step 1...")
@@ -38,18 +36,23 @@ class SAIGERunner(ToolRunner):
         # 2. Run SAIGE step two WITH parallelisation by chromosome
         self._logger.info("Running SAIGE step 2...")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A SAIGE thread failed',
-                                       incrementor=10,
                                        thread_factor=1)
 
         for chromosome in self._association_pack.bgen_dict:
             for tarball_prefix in self._association_pack.tarball_prefixes:
                 # changing this to search for BOLT files because we are now using these
                 # as our .bgen inputs
-                if Path(chromosome + ".bgen").exists():
-                    thread_utility.launch_job(class_type=self._saige_step_two,
-                                              tarball_prefix=tarball_prefix,
-                                              chromosome=chromosome)
+                if Path(self._association_pack.bgen_dict[chromosome]["bgen"].file_handle).exists():
+                    thread_utility.launch_job(function=self._saige_step_two,
+                                              inputs={
+                                                  'tarball_prefix': tarball_prefix,
+                                                  'chromosome': chromosome},
+                                              outputs=['tarball_prefix', 'chromosome', 'saige_log_file'])
+                else:
+                    # Stop if the bgen file does not exist
+                    raise FileNotFoundError(f'BGEN file for {chromosome} not found! Expected {chromosome + ".bgen"}')
+
+        thread_utility.submit_and_monitor()
 
         # 3. Gather preliminary results
         self._logger.info("Gathering SAIGE mask-based results...")
@@ -79,13 +82,13 @@ class SAIGERunner(ToolRunner):
         # there are too few low MAC variants in the genotype files to perform this step accurately. The SAIGE
         # documentation includes this step, but I am very unsure how it works...
         cmd = f'step1_fitNULLGLMM.R ' \
-              f'--phenoFile=/test/{self._association_pack.final_covariates} ' \
+              f'--phenoFile={self._association_pack.final_covariates} ' \
               f'--phenoCol={self._association_pack.pheno_names[0]} ' \
               f'--isCovariateTransform=FALSE ' \
               f'--sampleIDColinphenoFile=IID ' \
-              f'--outputPrefix=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT ' \
-              f'--sparseGRMFile=/test/{self._association_pack.sparse_grm.name} ' \
-              f'--sparseGRMSampleIDFile=/test/{self._association_pack.sparse_grm_sample.name} ' \
+              f'--outputPrefix={self._association_pack.pheno_names[0]}.SAIGE_OUT ' \
+              f'--sparseGRMFile={self._association_pack.sparse_grm} ' \
+              f'--sparseGRMSampleIDFile={self._association_pack.sparse_grm_sample} ' \
               f'--nThreads={self._association_pack.threads} ' \
               f'--LOCO=FALSE ' \
               f'--skipModelFitting=FALSE ' \
@@ -140,16 +143,16 @@ class SAIGERunner(ToolRunner):
 
         # See the README.md for more information on these parameters
         cmd = f'step2_SPAtests.R ' \
-              f'--bgenFile=/test/{chromosome}.bgen ' \
-              f'--bgenFileIndex=/test/{chromosome}.bgen.bgi ' \
-              f'--sampleFile=/test/{chromosome}.sample ' \
+              f'--bgenFile={self._association_pack.bgen_dict[chromosome]["bgen"].file_handle} ' \
+              f'--bgenFileIndex={self._association_pack.bgen_dict[chromosome]["index"].file_handle} ' \
+              f'--sampleFile={self._association_pack.bgen_dict[chromosome]["sample"].file_handle} ' \
               f'--AlleleOrder=ref-first ' \
-              f'--GMMATmodelFile=/test/{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda ' \
-              f'--sparseGRMFile=/test/{self._association_pack.sparse_grm.name} ' \
-              f'--sparseGRMSampleIDFile=/test/{self._association_pack.sparse_grm_sample.name} ' \
+              f'--GMMATmodelFile={self._association_pack.pheno_names[0]}.SAIGE_OUT.rda ' \
+              f'--sparseGRMFile={self._association_pack.sparse_grm} ' \
+              f'--sparseGRMSampleIDFile={self._association_pack.sparse_grm_sample} ' \
               f'--LOCO=FALSE ' \
-              f'--SAIGEOutputFile=/test/{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt ' \
-              f'--groupFile=/test/{tarball_prefix}.{chromosome}.SAIGE.groupFile.txt ' \
+              f'--SAIGEOutputFile={tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt ' \
+              f'--groupFile={tarball_prefix}.{chromosome}.SAIGE.groupFile.txt ' \
               f'--is_output_moreDetails=TRUE ' \
               f'--maxMAF_in_groupTest=0.5 ' \
               f'--maxMissing=1 ' \
@@ -160,7 +163,7 @@ class SAIGERunner(ToolRunner):
             cmd = cmd + '--is_Firth_beta=TRUE'
 
         saige_log_file = Path(f'{tarball_prefix}.{chromosome}.SAIGE_step2.log')
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=saige_log_file)
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=saige_log_file, print_cmd=True)
 
         return tarball_prefix, chromosome, saige_log_file
 
