@@ -7,7 +7,7 @@ from general_utilities.association_resources import bgzip_and_tabix
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.linear_model import linear_model
 from general_utilities.linear_model.linear_model import LinearModelResult
-from general_utilities.linear_model.proccess_model_output import process_linear_model_outputs
+from general_utilities.linear_model.proccess_model_output import process_model_outputs
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 

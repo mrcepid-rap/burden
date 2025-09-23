@@ -73,7 +73,7 @@ class REGENIERunner(ToolRunner):
         regenie_step2_genes_log = Path(f'{self._output_prefix}.REGENIE_step2_genes.log')
         with regenie_step2_genes_log.open('w') as regenie_step2_genes_writer:
             for result in thread_utility:
-                tarball_prefix, finished_chromosome, current_log = result
+                tarball_prefix, finished_chromosome, current_log = result.values()
 
                 completed_gene_tables.append(self._process_regenie_output(tarball_prefix,
                                                                           finished_chromosome))

@@ -53,7 +53,7 @@ class BOLTRunner(ToolRunner):
             thread_utility.submit_and_monitor()
 
             for result in thread_utility:
-                bgen, sample = result
+                bgen, sample = result.values()
                 poss_chromosomes.write(f'{bgen} '
                                        f'{sample}\n')
 
@@ -143,8 +143,8 @@ class BOLTRunner(ToolRunner):
               f'--phenoCol={self._association_pack.pheno_names[0]} ' \
               f'--covarFile={self._association_pack.final_covariates} ' \
               f'--covarMaxLevels=110 ' \
-              f'--LDscoresFile=BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
-              f'--geneticMapFile=BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
+              f'--LDscoresFile=/home/app/BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
+              f'--geneticMapFile=/home/app/BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
               f'--numThreads={self._association_pack.threads} ' \
               f'--statsFile={self._output_prefix}.stats.gz ' \
               f'--verboseStats ' \
@@ -189,7 +189,7 @@ class BOLTRunner(ToolRunner):
         del bolt_table
 
         # Test what columns we have in the 'SNP' field so we can name them...
-        field_names = define_field_names_from_pandas(bolt_table_gene.iloc[0])
+        field_names = define_field_names_from_pandas(id_field=bolt_table_gene.iloc[0], default_fields=['ENST'])
         bolt_table_gene[field_names] = bolt_table_gene['SNP'].str.split("-", expand=True)
         bolt_table_gene = bolt_table_gene.drop(columns=['SNP', 'CHR', 'BP', 'ALLELE1', 'ALLELE0', 'GENPOS'])
 
