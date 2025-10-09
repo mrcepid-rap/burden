@@ -22,7 +22,7 @@ class BurdenIngestData(IngestData):
             raise dxpy.AppError('The burden module currently only allows for running one phenotype at a time!')
 
         tarball_type, tarball_prefixes = ingest_tarballs(parsed_options.association_tarballs)
-        if tarball_type is TarballType.SNP or tarball_type is TarballType.GENE:
+        if tarball_type is not tarball_type.GENOMEWIDE:
             raise dxpy.AppError('The burden module is not compatible with SNP or GENE masks!')
 
         # Ingest WES filtered and annotated bgen
@@ -49,5 +49,6 @@ class BurdenIngestData(IngestData):
                                                         low_mac_list=loaded_genetics.get_low_mac_list(),
                                                         sparse_grm=loaded_genetics.get_sparsematrix(),
                                                         sparse_grm_sample=loaded_genetics.get_sparsematrix_sample(),
-                                                        genetic_filename=loaded_genetics.get_filtered_genetic_filename()))
+                                                        genetic_filename=loaded_genetics.get_filtered_genetic_filename(),
+                                                        tarball_type=tarball_type))
 
