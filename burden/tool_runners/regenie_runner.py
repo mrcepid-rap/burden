@@ -157,9 +157,9 @@ class REGENIERunner(ToolRunner):
 
         launcher.launch_job(function=run_regenie_step2,
                             inputs={
-                                "bgen_file": self._association_pack.bgen_dict[chromosome]['bgen'],
-                                "bgen_sample": self._association_pack.bgen_dict[chromosome]['sample'],
-                                "bgen_index": self._association_pack.bgen_dict[chromosome]['index'],
+                                "bgen_file": self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
+                                "bgen_sample": self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
+                                "bgen_index": self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
                                 "chromosome": chromosome,
                                 "tarball_prefixes": self._association_pack.tarball_prefixes,
                                 "samples_include": samples_include,

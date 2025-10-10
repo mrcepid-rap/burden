@@ -147,9 +147,9 @@ class SAIGERunner(ToolRunner):
         launcher.launch_job(
             function=run_saige_step_two,
             inputs={
-                'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'],
-                'bgen_index': self._association_pack.bgen_dict[chromosome]['index'],
-                'sample_file': self._association_pack.bgen_dict[chromosome]['sample'],
+                'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
+                'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
+                'sample_file': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
                 'chromosome': chromosome,
                 "tarball_prefixes": self._association_pack.tarball_prefixes,
                 'gmmatmodelfile': gmmatmodelfile,
