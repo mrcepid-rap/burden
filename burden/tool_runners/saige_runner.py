@@ -129,10 +129,6 @@ class SAIGERunner(ToolRunner):
         :return:
         """
 
-        # downlaod the bgen files as we need to export them to each subjob
-        bgen_file, bgen_index, sample_file, vep, vep_index = download_bgen_file(
-            chrom_bgen_index=self._association_pack.bgen_dict[chromosome])
-
         # set the launcher
         launcher = joblauncher_factory()
 
@@ -146,21 +142,14 @@ class SAIGERunner(ToolRunner):
         gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
         sparsegrmfile = exporter.export_files(f"{self._association_pack.sparse_grm}")
         sparsegrmsampleidfile = exporter.export_files(f"{self._association_pack.sparse_grm_sample}")
-        bgen_file = exporter.export_files(bgen_file)
-        bgen_index = exporter.export_files(bgen_index)
-        sample_file = exporter.export_files(sample_file)
-        vep = exporter.export_files(vep)
-        vep_index = exporter.export_files(vep_index)
         group_files = [exporter.export_files(gf) for gf in group_files]
 
         launcher.launch_job(
             function=run_saige_step_two,
             inputs={
-                'bgen_file': bgen_file,
-                'bgen_index': bgen_index,
-                'sample_file': sample_file,
-                'vep': vep,
-                'vep_index': vep_index,
+                'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'],
+                'bgen_index': self._association_pack.bgen_dict[chromosome]['index'],
+                'sample_file': self._association_pack.bgen_dict[chromosome]['sample'],
                 'chromosome': chromosome,
                 "tarball_prefixes": self._association_pack.tarball_prefixes,
                 'gmmatmodelfile': gmmatmodelfile,
@@ -241,7 +230,7 @@ class SAIGERunner(ToolRunner):
 
 @dxpy.entry_point('regenie_step_two')
 def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
-                       vep: str, vep_index: str, chromosome: str, tarball_prefixes: List[str], gmmatmodelfile: str,
+                    chromosome: str, tarball_prefixes: List[str], gmmatmodelfile: str,
                        sparsegrmfile: str, sparsegrmsampleidfile: str, group_files: List[str],
                        is_binary: bool) -> List[Dict[str, Any]]:
     """
@@ -250,8 +239,6 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     :param bgen_file: The bgen file to use
     :param bgen_index: The bgen index file to use
     :param sample_file: The sample file to use
-    :param vep: The vep file to use
-    :param vep_index: The vep index file to use
     :param chromosome: The chromosome / chunk to run SAIGE on
     :param tarball_prefixes: The tarball prefixes to run SAIGE on
     :param gmmatmodelfile: The GMMAT model file from step 1
@@ -267,8 +254,6 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     bgen_file = InputFileHandler(bgen_file).get_file_handle()
     bgen_index = InputFileHandler(bgen_index).get_file_handle()
     sample_file = InputFileHandler(sample_file).get_file_handle()
-    vep = InputFileHandler(vep).get_file_handle()
-    vep_index = InputFileHandler(vep_index).get_file_handle()
     gmmatmodelfile = InputFileHandler(gmmatmodelfile).get_file_handle()
     sparsegrmfile = InputFileHandler(sparsegrmfile).get_file_handle()
     sparsegrmsampleidfile = InputFileHandler(sparsegrmsampleidfile).get_file_handle()

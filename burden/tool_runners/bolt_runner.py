@@ -274,11 +274,6 @@ def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam
     # set the subjob launcher class
     subjob_launcher = joblauncher_factory()
 
-    # set the output
-    bolt_log = []
-    statsfile = []
-    statsfile_bgen_snps = []
-
     # set the file exporter for each chunk
     exporter = ExportFileHandler()
     bed_file = exporter.export_files(bed_file)
