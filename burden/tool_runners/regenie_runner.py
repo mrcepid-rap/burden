@@ -104,7 +104,7 @@ class REGENIERunner(ToolRunner):
               '--extract REGENIE_extract.snplist ' \
               f'--covarFile {self._association_pack.final_covariates} ' \
               f'--phenoFile {self._association_pack.final_covariates} ' \
-              '--maxCat Levels 110 ' \
+              '--maxCatLevels 110 ' \
               '--bsize 1000 ' \
               '--out fit_out ' \
               f'--threads {str(self._association_pack.threads)} ' \
