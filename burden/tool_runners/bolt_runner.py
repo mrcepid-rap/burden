@@ -319,9 +319,10 @@ def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam
 
     # process results
     for subjob_output in subjob_launcher:
-        bolt_log.append(subjob_output["bolt_log"])
-        statsfile.append(subjob_output["statsfile"])
-        statsfile_bgen_snps.append(subjob_output["statsfile_bgen_snps"])
+        output = subjob_output['output']
+        bolt_log.append(output["bolt_log"])
+        statsfile.append(output["statsfile"])
+        statsfile_bgen_snps.append(output["statsfile_bgen_snps"])
 
     # concatenate the log files
     with open(f'{output_prefix}.BOLT.log', 'w') as bolt_log_out:
