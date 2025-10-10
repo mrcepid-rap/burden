@@ -291,6 +291,7 @@ def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam
         # write each row as a new file, so that we can launch a subjob for each
         chromosome_file = Path(f'chromosome_{idx}.txt')
         chromosome_file.write_text(f'{row.iloc[0]}\t{row.iloc[1]}\n')
+        chromosome_file = exporter.export_files(chromosome_file)
         bgen_file = exporter.export_files(row.iloc[0])
         sample_file = exporter.export_files(row.iloc[1])
 
@@ -361,7 +362,7 @@ def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam
 
 # Run rare variant association testing using BOLT
 @dxpy.entry_point('run_bolt')
-def run_bolt(possible_chromosomes: Path, bgen_file: str, sample_file: str,
+def run_bolt(possible_chromosomes: str, bgen_file: str, sample_file: str,
              bed_file: str, bim_file: str, fam_file: str, low_mac_list: str, final_covariates: str,
              pheno_names: str, threads: int, output_prefix: str, found_quantitative_covariates: List[str],
              found_categorical_covariates: List[str], is_bolt_non_infinite: bool, ignore_base_covariates: bool) -> dict:
