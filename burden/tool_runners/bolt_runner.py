@@ -1,4 +1,5 @@
 import csv
+import gzip
 from pathlib import Path
 from typing import List, Tuple
 
@@ -241,8 +242,10 @@ class BOLTRunner(ToolRunner):
         return outputs
 
 
-def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam_file: Path, low_mac_list: Path, final_covariates: Path,
-                     pheno_names: str, threads: int, output_prefix: str, quantitative_covariates: List, categorical_covariates: List,
+def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam_file: Path, low_mac_list: Path,
+                     final_covariates: Path,
+                     pheno_names: str, threads: int, output_prefix: str, quantitative_covariates: List,
+                     categorical_covariates: List,
                      is_bolt_non_infinite: bool, ignore_base_covariates: bool) -> None:
     """
     Multithread BOLT runner for WGS data.
@@ -320,39 +323,40 @@ def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam
     # process results
     for subjob_output in subjob_launcher:
         output = subjob_output['output']
-        bolt_log.append(output["bolt_log"])
-        statsfile.append(output["statsfile"])
-        statsfile_bgen_snps.append(output["statsfile_bgen_snps"])
+        InputFileHandler(output["bolt_log"], download_now=True)
+        InputFileHandler(output["statsfile"], download_now=True)
+        InputFileHandler(output["statsfile_bgen_snps"], download_now=True)
 
-    # concatenate the log files
-    with open(f'{output_prefix}.BOLT.log', 'w') as bolt_log_out:
-        for log in bolt_log:
-            with open(log, 'r') as log_file:
-                bolt_log_out.write(log_file.read())
-            log_file.close()
+    # get *.stats.gz (but not bgen stats)
+    stats_parts = sorted([
+        f for f in Path().glob(f"{output_prefix}_part*.stats.gz")
+        if not f.name.endswith(".bgen.stats.gz")
+    ])
+    # get *.bgen.stats.gz
+    bgen_stats_parts = sorted(Path().glob(f"{output_prefix}_part*.bgen.stats.gz"))
+    # get *.BOLT.log
+    log_parts = sorted(Path().glob(f"{output_prefix}_part*.BOLT.log"))
 
-    # concatenate the stats files (but skip the header for all but the first)
-    with open(f'{output_prefix}.stats.gz', 'wb') as stats_out:
-        for i, stats in enumerate(statsfile):
-            with open(stats, 'rb') as stats_file:
-                if i == 0:
-                    stats_out.write(stats_file.read())
-                else:
-                    next(stats_file)  # skip header
-                    stats_out.write(stats_file.read())
-            stats_file.close()
-
-    # concatenate the bgen stats files (but skip the header for all but the first)
-    with open(f'{output_prefix}.bgen.stats.gz', 'wb') as stats_bgen_out:
-        for i, stats in enumerate(statsfile_bgen_snps):
-            with open(stats, 'rb') as stats_file:
-                if i == 0:
-                    stats_bgen_out.write(stats_file.read())
-                else:
-                    next(stats_file)  # skip header
-                    stats_bgen_out.write(stats_file.read())
-            stats_file.close()
-
+    # Concatenate .stats.gz
+    with gzip.open(f"{output_prefix}.stats.gz", "wb") as stats:
+        for i, part_file in enumerate(stats_parts):
+            with gzip.open(part_file, "rb") as fin:
+                if i > 0:
+                    fin.readline()  # skip header
+                stats.write(fin.read())
+    # Concatenate .bgen.stats.gz
+    with gzip.open(f"{output_prefix}.bgen.stats.gz", "wb") as bgen_stats:
+        for i, part_file in enumerate(bgen_stats_parts):
+            with gzip.open(part_file, "rb") as fin:
+                if i > 0:
+                    fin.readline()
+                bgen_stats.write(fin.read())
+    # Concatenate .BOLT.log
+    with open(f"{output_prefix}.BOLT.log", "w") as log:
+        for part_file in log_parts:
+            with open(part_file, "r") as fin:
+                log.write(fin.read())
+                log.write("\n")  # ensure spacing between parts
 
 
 # Run rare variant association testing using BOLT
