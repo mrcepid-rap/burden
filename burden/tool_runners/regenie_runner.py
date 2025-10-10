@@ -129,6 +129,10 @@ class REGENIERunner(ToolRunner):
         :return: A list of dictionaries containing the tarball prefix, finished chromosome, and log file
         """
 
+        # download the bgen files as we need to export them
+        bgen_file, bgen_index, sample_file, vep, vep_index = download_bgen_file(
+            chrom_bgen_index=self._association_pack.bgen_dict[chromosome])
+
         # set the launcher
         launcher = joblauncher_factory()
 
@@ -151,13 +155,22 @@ class REGENIERunner(ToolRunner):
         samples_include = exporter.export_files(samples_include)
         fit_out_pred = exporter.export_files(fit_out_pred)
         fit_out_loco = exporter.export_files(fit_out_loco)
+        bgen_file = exporter.export_files(bgen_file)
+        bgen_index = exporter.export_files(bgen_index)
+        sample_file = exporter.export_files(sample_file)
+        vep = exporter.export_files(vep)
+        vep_index = exporter.export_files(vep_index)
         anno_files = [exporter.export_files(af) for af in anno_files]
         mask_files = [exporter.export_files(mf) for mf in mask_files]
         setlist_files = [exporter.export_files(sf) for sf in setlist_files]
 
         launcher.launch_job(function=run_regenie_step2,
                             inputs={
-                                "chrom_bgen_index": self._association_pack.bgen_dict[chromosome],
+                                "bgen_file": bgen_file,
+                                "bgen_sample": sample_file,
+                                "bgen_index": bgen_index,
+                                "vep": vep,
+                                "vep_index": vep_index,
                                 "chromosome": chromosome,
                                 "tarball_prefixes": self._association_pack.tarball_prefixes,
                                 "samples_include": samples_include,
@@ -286,7 +299,8 @@ class REGENIERunner(ToolRunner):
 
 @dxpy.entry_point('regenie_step_two')
 def run_regenie_step2(
-        chrom_bgen_index, chromosome: str, tarball_prefixes: List[str], samples_include: Path,
+        bgen_file: str, bgen_sample: str, bgen_index: str, vep: str, vep_index: str,
+        chromosome: str, tarball_prefixes: List[str], samples_include: Path,
         covariate_file: Path, pheno_file: Path, pheno_column: str, fit_out_pred: Path, fit_out_loco: Path,
         annotation_file: str, mask_file: str, setlist_file: str, is_binary: bool,
         found_quantitative_covariates: List[str], found_categorical_covariates: List[str],
@@ -294,7 +308,11 @@ def run_regenie_step2(
     """
     A function to run REGENIE step 2 on a single chromosome
 
-    :param chrom_bgen_index: The bgen and index files for this chromosome
+    :param bgen_file: The bgen file to run
+    :param bgen_sample: The bgen sample file to run
+    :param bgen_index: The bgen index file to run
+    :param vep: The vep annotation file to run
+    :param vep_index: The vep index file to run
     :param chromosome: The chromosome/chunk to run
     :param tarball_prefixes: The tarball prefixes to run
     :param samples_include: The samples to include
@@ -316,7 +334,11 @@ def run_regenie_step2(
 
     # we are now working per chunk
     # Get all the files we need
-    bgen_file, bgen_index, sample_file, vep, vep_index = download_bgen_file(chrom_bgen_index=chrom_bgen_index)
+    bgen_file = InputFileHandler(bgen_file).get_file_handle()
+    sample_file = InputFileHandler(bgen_sample).get_file_handle()
+    bgen_index = InputFileHandler(bgen_index).get_file_handle()
+    vep = InputFileHandler(vep).get_file_handle()
+    vep_index = InputFileHandler(vep_index).get_file_handle()
     covariate_file = InputFileHandler(covariate_file).get_file_handle()
     pheno_file = InputFileHandler(pheno_file).get_file_handle()
     fit_out_pred = InputFileHandler(fit_out_pred).get_file_handle()
