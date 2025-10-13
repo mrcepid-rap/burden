@@ -364,8 +364,8 @@ def run_regenie_step2(
                                       },
                                       outputs=[
                                           "tarball_prefix",
-                                          "finished_chromosome",
-                                          "current_log",
+                                          "chromosome",
+                                          "regenie_log",
                                           "regenie_output"
                                       ]
                                       )
@@ -374,11 +374,16 @@ def run_regenie_step2(
     # collect results from thread_utility
     results = []
     for result in thread_utility:
-        results.append(result)
+        results.append({
+            "tarball_prefix": result["tarball_prefix"],
+            "finished_chromosome": result["chromosome"],
+            "current_log": result["regenie_log"],
+            "regenie_output": result["regenie_output"]
+        })
 
     exporter = ExportFileHandler()
 
-    # return a flat list (one entry per tarball prefix)
+    # return
     return {
         "output": [
             {

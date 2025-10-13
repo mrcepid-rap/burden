@@ -135,6 +135,7 @@ class SAIGERunner(ToolRunner):
             gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
             sparsegrmfile = exporter.export_files(f"{self._association_pack.sparse_grm}")
             sparsegrmsampleidfile = exporter.export_files(f"{self._association_pack.sparse_grm_sample}")
+
             group_files = [exporter.export_files(gf) for gf in group_files]
 
             launcher.launch_job(
@@ -225,7 +226,7 @@ class SAIGERunner(ToolRunner):
 def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
                     chromosome: str, tarball_prefixes: List[str], gmmatmodelfile: str,
                        sparsegrmfile: str, sparsegrmsampleidfile: str, group_files: List[str],
-                       is_binary: bool) -> List[Dict[str, Any]]:
+                       is_binary: bool) -> Dict[str, Any]:
     """
     A wrapper function to allow for multithreading of SAIGE step 2 by chromosome.
 
@@ -287,20 +288,27 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     # collect results from thread_utility
     results = []
     for result in thread_utility:
-        results.append(result)
+        results.append({
+            "tarball_prefix": result["tarball_prefix"],
+            "finished_chromosome": result["chromosome"],
+            "saige_log_file": result["saige_log_file"],
+            "saige_output": result["saige_output"]
+        })
 
     exporter = ExportFileHandler()
 
-    # return a flat list (one entry per tarball prefix)
-    return [
-        {
-            "tarball_prefix": r["tarball_prefix"],
-            "finished_chromosome": r["finished_chromosome"],
-            "current_log": exporter.export_files(r["current_log"]),
-            "regenie_output": exporter.export_files(r["saige_output"])
-        }
-        for r in results
-    ]
+    # return
+    return {
+        "output": [
+            {
+                "tarball_prefix": r["tarball_prefix"],
+                "finished_chromosome": r["finished_chromosome"],
+                "saige_log_file": exporter.export_files(r["saige_log_file"]),
+                "saige_output": exporter.export_files(r["saige_output"])
+            }
+            for r in results
+        ]
+    }
 
 
 # This is a helper function to parallelise SAIGE step 2 by chromosome
