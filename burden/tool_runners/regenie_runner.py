@@ -152,15 +152,12 @@ class REGENIERunner(ToolRunner):
             fit_out_pred = exporter.export_files(fit_out_pred)
             fit_out_loco = exporter.export_files(fit_out_loco)
             phenotype_file = exporter.export_files(self._association_pack.final_covariates)
-            bgen_file = exporter.export_files(self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str())
-            bgen_sample = exporter.export_files(self._association_pack.bgen_dict[chromosome]['sample'].get_input_str())
-            bgen_index = exporter.export_files(self._association_pack.bgen_dict[chromosome]['index'].get_input_str())
             anno_files = [exporter.export_files(af) for af in anno_files]
             mask_files = [exporter.export_files(mf) for mf in mask_files]
             setlist_files = [exporter.export_files(sf) for sf in setlist_files]
 
-            print(bgen_file)
-            print(bgen_index)
+            print(self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str())
+            print(self._association_pack.bgen_dict[chromosome]['sample'].get_input_str())
             print(chromosome)
             print(self._association_pack.tarball_prefixes)
             print(samples_include)
@@ -178,9 +175,9 @@ class REGENIERunner(ToolRunner):
 
             launcher.launch_job(function=run_regenie_step2,
                                 inputs={
-                                    "bgen_file": bgen_file,
-                                    "bgen_sample": bgen_sample,
-                                    "bgen_index": bgen_index,
+                                    "bgen_file": self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
+                                    "bgen_sample": self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
+                                    "bgen_index": self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
                                     "chromosome": chromosome,
                                     "tarball_prefixes": self._association_pack.tarball_prefixes,
                                     "samples_include": samples_include,
