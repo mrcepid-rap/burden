@@ -37,13 +37,8 @@ class REGENIERunner(ToolRunner):
         # # 2. Prep bgen files for a run:
         self._logger.info("Preparing to launch subjobs for running REGENIE step 2 on separate VMs...")
 
-        # set the output
-        all_step2_outputs = []
 
-        # Due to the size and volume of WGS files we are going to run this per chunk.
-        for chromosome in self._association_pack.bgen_dict:
-            step2_output = self._multithread_step2(chromosome)
-            all_step2_outputs.extend(step2_output)  # Collect all results
+        all_step2_outputs = self._multithread_step2()
 
         # Gather preliminary results from step 2:
         self._logger.info("Gathering REGENIE mask-based results...")
@@ -121,13 +116,15 @@ class REGENIERunner(ToolRunner):
 
         return regenie_log
 
-    def _multithread_step2(self, chromosome) -> List[Dict[str, Any]]:
+    def _multithread_step2(self) -> List[Dict[str, Any]]:
         """
         A function to run REGENIE step 2 on a single chromosome in a multithreaded manner
 
         :param chromosome: The chromosome/chunk to run
         :return: A list of dictionaries containing the tarball prefix, finished chromosome, and log file
         """
+        # set the output
+        all_step2_outputs = []
 
         # set the launcher
         launcher = joblauncher_factory()
@@ -140,75 +137,83 @@ class REGENIERunner(ToolRunner):
         # set the exporter
         exporter = ExportFileHandler()
 
-        # make a list of all annotation files for this chromosome
-        anno_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.annotationFile.txt'))
-        # make a list of the mask files for this chromosome
-        mask_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.maskfile.txt'))
-        # make a list of the setlist files for this chromosome
-        setlist_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.setListFile.txt'))
+        for chromosome in self._association_pack.bgen_dict:
 
-        # export the files to DX for each subjob
-        samples_include = exporter.export_files(samples_include)
-        fit_out_pred = exporter.export_files(fit_out_pred)
-        fit_out_loco = exporter.export_files(fit_out_loco)
-        phenotype_file = exporter.export_files(self._association_pack.final_covariates)
-        anno_files = [exporter.export_files(af) for af in anno_files]
-        mask_files = [exporter.export_files(mf) for mf in mask_files]
-        setlist_files = [exporter.export_files(sf) for sf in setlist_files]
 
-        print(self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str())
-        print(self._association_pack.bgen_dict[chromosome]['sample'].get_input_str())
-        print(chromosome)
-        print(self._association_pack.tarball_prefixes)
-        print(samples_include)
-        print(self._association_pack.final_covariates)
-        print(self._association_pack.pheno_names[0])
-        print(fit_out_pred)
-        print(fit_out_loco)
-        print(anno_files)
-        print(mask_files)
-        print(setlist_files)
-        print(self._association_pack.found_quantitative_covariates)
-        print(self._association_pack.found_categorical_covariates)
-        print(self._association_pack.is_binary)
-        print(self._association_pack.ignore_base_covariates)
+            # make a list of all annotation files for this chromosome
+            anno_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.annotationFile.txt'))
+            # make a list of the mask files for this chromosome
+            mask_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.maskfile.txt'))
+            # make a list of the setlist files for this chromosome
+            setlist_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.setListFile.txt'))
 
-        launcher.launch_job(function=run_regenie_step2,
-                            inputs={
-                                "bgen_file": {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str()},
-                                "bgen_sample": {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str()},
-                                "bgen_index": {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['index'].get_input_str()},
-                                "chromosome": chromosome,
-                                "tarball_prefixes": self._association_pack.tarball_prefixes,
-                                "samples_include": samples_include,
-                                "covariate_file": phenotype_file,
-                                "pheno_file": phenotype_file,
-                                "pheno_column": self._association_pack.pheno_names[0],
-                                "fit_out_pred": fit_out_pred,
-                                "fit_out_loco": fit_out_loco,
-                                "annotation_file": anno_files,
-                                "mask_file": mask_files,
-                                "setlist_file": setlist_files,
-                                "found_quantitative_covariates": self._association_pack.found_quantitative_covariates,
-                                "found_categorical_covariates": self._association_pack.found_categorical_covariates,
-                                "is_binary": self._association_pack.is_binary,
-                                "ignore_base_covariates": self._association_pack.ignore_base_covariates,
-                            },
-                            outputs=[
-                                "output"
-                            ]
-                            )
+            # export the files to DX for each subjob
+            samples_include = exporter.export_files(samples_include)
+            fit_out_pred = exporter.export_files(fit_out_pred)
+            fit_out_loco = exporter.export_files(fit_out_loco)
+            phenotype_file = exporter.export_files(self._association_pack.final_covariates)
+            bgen_file = exporter.export_files(self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str())
+            bgen_sample = exporter.export_files(self._association_pack.bgen_dict[chromosome]['sample'].get_input_str())
+            bgen_index = exporter.export_files(self._association_pack.bgen_dict[chromosome]['index'].get_input_str())
+            anno_files = [exporter.export_files(af) for af in anno_files]
+            mask_files = [exporter.export_files(mf) for mf in mask_files]
+            setlist_files = [exporter.export_files(sf) for sf in setlist_files]
 
+            print(bgen_file)
+            print(bgen_index)
+            print(chromosome)
+            print(self._association_pack.tarball_prefixes)
+            print(samples_include)
+            print(self._association_pack.final_covariates)
+            print(self._association_pack.pheno_names[0])
+            print(fit_out_pred)
+            print(fit_out_loco)
+            print(anno_files)
+            print(mask_files)
+            print(setlist_files)
+            print(self._association_pack.found_quantitative_covariates)
+            print(self._association_pack.found_categorical_covariates)
+            print(self._association_pack.is_binary)
+            print(self._association_pack.ignore_base_covariates)
+
+            launcher.launch_job(function=run_regenie_step2,
+                                inputs={
+                                    "bgen_file": bgen_file,
+                                    "bgen_sample": bgen_sample,
+                                    "bgen_index": bgen_index,
+                                    "chromosome": chromosome,
+                                    "tarball_prefixes": self._association_pack.tarball_prefixes,
+                                    "samples_include": samples_include,
+                                    "covariate_file": phenotype_file,
+                                    "pheno_file": phenotype_file,
+                                    "pheno_column": self._association_pack.pheno_names[0],
+                                    "fit_out_pred": fit_out_pred,
+                                    "fit_out_loco": fit_out_loco,
+                                    "annotation_file": anno_files,
+                                    "mask_file": mask_files,
+                                    "setlist_file": setlist_files,
+                                    "found_quantitative_covariates": self._association_pack.found_quantitative_covariates,
+                                    "found_categorical_covariates": self._association_pack.found_categorical_covariates,
+                                    "is_binary": self._association_pack.is_binary,
+                                    "ignore_base_covariates": self._association_pack.ignore_base_covariates,
+                                },
+                                outputs=[
+                                    "output"
+                                ]
+                                )
         launcher.submit_and_monitor()
 
         step2_outputs = []
         for result in launcher:
+            print(result)
             # result["output"] is already a list of dicts
             for r in result["output"]:
                 # download subjob outputs to local machine
                 InputFileHandler(r["current_log"], download_now=True).get_file_handle()
                 InputFileHandler(r["regenie_output"], download_now=True).get_file_handle()
                 step2_outputs.append(r)
+
+        # all_step2_outputs.extend(step2_outputs)  # Collect all results
 
         return step2_outputs
 
@@ -304,7 +309,7 @@ class REGENIERunner(ToolRunner):
         return outputs
 
 
-@dxpy.entry_point('regenie_step_two')
+@dxpy.entry_point('run_regenie_step2')
 def run_regenie_step2(
         bgen_file: str, bgen_sample: str, bgen_index: str,
         chromosome: str, tarball_prefixes: List[str], samples_include: Path,
