@@ -37,7 +37,6 @@ class REGENIERunner(ToolRunner):
         # # 2. Prep bgen files for a run:
         self._logger.info("Preparing to launch subjobs for running REGENIE step 2 on separate VMs...")
 
-
         all_step2_outputs = self._multithread_step2()
 
         # Gather preliminary results from step 2:
@@ -120,11 +119,8 @@ class REGENIERunner(ToolRunner):
         """
         A function to run REGENIE step 2 on a single chromosome in a multithreaded manner
 
-        :param chromosome: The chromosome/chunk to run
         :return: A list of dictionaries containing the tarball prefix, finished chromosome, and log file
         """
-        # set the output
-        all_step2_outputs = []
 
         # set the launcher
         launcher = joblauncher_factory()
@@ -138,7 +134,6 @@ class REGENIERunner(ToolRunner):
         exporter = ExportFileHandler()
 
         for chromosome in self._association_pack.bgen_dict:
-
 
             # make a list of all annotation files for this chromosome
             anno_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.annotationFile.txt'))

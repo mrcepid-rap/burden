@@ -33,12 +33,7 @@ class SAIGERunner(ToolRunner):
         # 2. Run SAIGE step two WITH parallelisation by chromosome
         self._logger.info("Running SAIGE step 2...")
 
-        # set the output
-        all_step2_outputs = []
-
-        for chromosome in self._association_pack.bgen_dict:
-            step2_output = self._multithread_step2(chromosome)
-            all_step2_outputs.extend(step2_output)  # Collect all results
+        all_step2_outputs = self._multithread_step2()
 
         # 3. Gather preliminary results
         self._logger.info("Gathering SAIGE mask-based results...")
@@ -114,11 +109,11 @@ class SAIGERunner(ToolRunner):
 
         return saige_log_file
 
-    def _multithread_step2(self, chromosome: str) -> List[Dict[str, Any]]:
+    def _multithread_step2(self) -> List[Dict[str, Any]]:
         """
         A wrapper function to allow for multithreading of SAIGE step 2 by chromosome.
-        :param chromosome:
-        :return:
+
+        :return: A list of dictionaries containing the outputs from each subjob
         """
 
         # set the launcher
@@ -127,31 +122,33 @@ class SAIGERunner(ToolRunner):
         # set the exporter
         exporter = ExportFileHandler()
 
-        # make a list of the setlist files for this chromosome
-        group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
+        for chromosome in self._association_pack.bgen_dict:
 
-        # export the files for each subjob
-        gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
-        sparsegrmfile = exporter.export_files(f"{self._association_pack.sparse_grm}")
-        sparsegrmsampleidfile = exporter.export_files(f"{self._association_pack.sparse_grm_sample}")
-        group_files = [exporter.export_files(gf) for gf in group_files]
+            # make a list of the setlist files for this chromosome
+            group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
 
-        launcher.launch_job(
-            function=run_saige_step_two,
-            inputs={
-                'bgen_file': {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str()},
-                'bgen_index': {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['index'].get_input_str()},
-                'sample_file': {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str()},
-                'chromosome': chromosome,
-                "tarball_prefixes": self._association_pack.tarball_prefixes,
-                'gmmatmodelfile': gmmatmodelfile,
-                'sparsegrmfile': sparsegrmfile,
-                'sparsegrmsampleidfile': sparsegrmsampleidfile,
-                'group_files': group_files,
-                'is_binary': self._association_pack.is_binary
-            },
-            outputs=['output'],
-        )
+            # export the files for each subjob
+            gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
+            sparsegrmfile = exporter.export_files(f"{self._association_pack.sparse_grm}")
+            sparsegrmsampleidfile = exporter.export_files(f"{self._association_pack.sparse_grm_sample}")
+            group_files = [exporter.export_files(gf) for gf in group_files]
+
+            launcher.launch_job(
+                function=run_saige_step_two,
+                inputs={
+                    'bgen_file':  self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
+                    'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
+                    'sample_file': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
+                    'chromosome': chromosome,
+                    "tarball_prefixes": self._association_pack.tarball_prefixes,
+                    'gmmatmodelfile': gmmatmodelfile,
+                    'sparsegrmfile': sparsegrmfile,
+                    'sparsegrmsampleidfile': sparsegrmsampleidfile,
+                    'group_files': group_files,
+                    'is_binary': self._association_pack.is_binary
+                },
+                outputs=['output'],
+            )
         launcher.submit_and_monitor()
 
         step2_outputs = []
