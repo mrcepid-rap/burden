@@ -139,9 +139,9 @@ class SAIGERunner(ToolRunner):
         launcher.launch_job(
             function=run_saige_step_two,
             inputs={
-                'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
-                'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
-                'sample_file': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
+                'bgen_file': {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str()},
+                'bgen_index': {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['index'].get_input_str()},
+                'sample_file': {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str()},
                 'chromosome': chromosome,
                 "tarball_prefixes": self._association_pack.tarball_prefixes,
                 'gmmatmodelfile': gmmatmodelfile,
@@ -220,7 +220,7 @@ class SAIGERunner(ToolRunner):
         return outputs
 
 
-@dxpy.entry_point('regenie_step_two')
+@dxpy.entry_point('run_saige_step_two')
 def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
                     chromosome: str, tarball_prefixes: List[str], gmmatmodelfile: str,
                        sparsegrmfile: str, sparsegrmsampleidfile: str, group_files: List[str],
