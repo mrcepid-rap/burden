@@ -290,7 +290,7 @@ def run_regenie_step2(
         covariate_file: Path, pheno_file: Path, pheno_column: str, fit_out_pred: Path, fit_out_loco: Path,
         annotation_file: str, mask_file: str, setlist_file: str, is_binary: bool,
         found_quantitative_covariates: List[str], found_categorical_covariates: List[str],
-        ignore_base_covariates: bool) -> List[Dict[str, Any]]:
+        ignore_base_covariates: bool) -> Dict[str, Any]:
     """
     A function to run REGENIE step 2 on a single chromosome
 
@@ -379,15 +379,17 @@ def run_regenie_step2(
     exporter = ExportFileHandler()
 
     # return a flat list (one entry per tarball prefix)
-    return [
-        {
-            "tarball_prefix": r["tarball_prefix"],
-            "finished_chromosome": r["finished_chromosome"],
-            "current_log": exporter.export_files(r["current_log"]),
-            "regenie_output": exporter.export_files(r["regenie_output"])
-        }
-        for r in results
-    ]
+    return {
+        "output": [
+            {
+                "tarball_prefix": r["tarball_prefix"],
+                "finished_chromosome": r["finished_chromosome"],
+                "current_log": exporter.export_files(r["current_log"]),
+                "regenie_output": exporter.export_files(r["regenie_output"])
+            }
+            for r in results
+        ]
+    }
 
 
 def regenie_step_two(tarball_prefix, chromosome, bgen_file, bgen_sample, samples_include,
