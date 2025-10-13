@@ -151,23 +151,6 @@ class REGENIERunner(ToolRunner):
             mask_files = [exporter.export_files(mf) for mf in mask_files]
             setlist_files = [exporter.export_files(sf) for sf in setlist_files]
 
-            print(self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str())
-            print(self._association_pack.bgen_dict[chromosome]['sample'].get_input_str())
-            print(chromosome)
-            print(self._association_pack.tarball_prefixes)
-            print(samples_include)
-            print(self._association_pack.final_covariates)
-            print(self._association_pack.pheno_names[0])
-            print(fit_out_pred)
-            print(fit_out_loco)
-            print(anno_files)
-            print(mask_files)
-            print(setlist_files)
-            print(self._association_pack.found_quantitative_covariates)
-            print(self._association_pack.found_categorical_covariates)
-            print(self._association_pack.is_binary)
-            print(self._association_pack.ignore_base_covariates)
-
             launcher.launch_job(function=run_regenie_step2,
                                 inputs={
                                     "bgen_file": self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
@@ -197,7 +180,6 @@ class REGENIERunner(ToolRunner):
 
         step2_outputs = []
         for result in launcher:
-            print(result)
             # result["output"] is already a list of dicts
             for r in result["output"]:
                 # download subjob outputs to local machine
@@ -304,7 +286,7 @@ class REGENIERunner(ToolRunner):
 @dxpy.entry_point('run_regenie_step2')
 def run_regenie_step2(
         bgen_file: str, bgen_sample: str, bgen_index: str,
-        chromosome: str, tarball_prefixes: List[str], samples_include: Path,
+        chromosome: str, tarball_prefixes: List[str], samples_include: str,
         covariate_file: Path, pheno_file: Path, pheno_column: str, fit_out_pred: Path, fit_out_loco: Path,
         annotation_file: str, mask_file: str, setlist_file: str, is_binary: bool,
         found_quantitative_covariates: List[str], found_categorical_covariates: List[str],
@@ -338,6 +320,7 @@ def run_regenie_step2(
     # Get all the files we need
     bgen_file = InputFileHandler(bgen_file).get_file_handle()
     sample_file = InputFileHandler(bgen_sample).get_file_handle()
+    samples_include = InputFileHandler(samples_include).get_file_handle()
     bgen_index = InputFileHandler(bgen_index).get_file_handle()
     covariate_file = InputFileHandler(covariate_file).get_file_handle()
     pheno_file = InputFileHandler(pheno_file).get_file_handle()
