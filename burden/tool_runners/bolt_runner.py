@@ -1,16 +1,10 @@
 import csv
-import gzip
 from pathlib import Path
 from typing import List, Tuple
 
-import dxpy
 import pandas as pd
 from general_utilities.association_resources import define_field_names_from_pandas, bgzip_and_tabix
-from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
-from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
-from general_utilities.import_utils.import_lib import LOGGER
-from general_utilities.job_management.command_executor import build_default_command_executor
-from general_utilities.job_management.joblauncher_factory import joblauncher_factory
+from general_utilities.import_utils.import_lib import download_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
@@ -47,118 +41,19 @@ class BOLTRunner(ToolRunner):
             thread_utility.submit_and_monitor()
 
             for result in thread_utility:
-                bgen = str(result['bgen_output'])
-                sample = str(result['sample_file'])
-                poss_chromosomes.write(f'{bgen}\t{sample}\n')
+                bgen, sample = result.values()
+                poss_chromosomes.write(f'{bgen} '
+                                       f'{sample}\n')
 
             poss_chromosomes.close()
 
         # 2. Actually run BOLT
         self._logger.info("Running BOLT...")
-        self._bolt_multithread()
+        self._run_bolt(possible_chromosomes)
 
         # 3. Process the outputs
         self._logger.info("Processing BOLT outputs...")
         self._outputs.extend(self._process_bolt_outputs())
-
-    def _bolt_multithread(self, poss_chromosomes: Path) -> None:
-        """
-        Multithread BOLT runner for WGS data.
-
-        :param poss_chromosomes: Path to the file containing the list of BGEN files and their sample files.
-        :return: None
-        """
-
-        LOGGER.info("Starting BOLT run using subjobs...")
-
-        # read in all the possible chromosomes/chunks that we can run
-        poss_chromosomes = pd.read_csv(poss_chromosomes, sep='\t', header=None)
-        print(tarball_prefixes)
-        print(poss_chromosomes)
-        return
-
-        # set the subjob launcher class
-        subjob_launcher = joblauncher_factory()
-
-        # set the file exporter for each chunk
-        exporter = ExportFileHandler()
-        bed_file = exporter.export_files(f"{self._association_pack.genetic_filename}.bed")
-        bim_file = exporter.export_files(f"{self._association_pack.genetic_filename}.bim")
-        fam_file = exporter.export_files(f"{self._association_pack.genetic_filename}.fam")
-        low_mac_list = exporter.export_files(self._association_pack.low_mac_list)
-        final_covariates = exporter.export_files(self._association_pack.final_covariates)
-
-        for idx, row in poss_chromosomes.iterrows():
-            # write each row as a new file, so that we can launch a subjob for each
-            chromosome_file = Path(f'chromosome_{idx}.txt')
-            chromosome_file.write_text(f'{row.iloc[0]}\t{row.iloc[1]}\n')
-            chromosome_file = exporter.export_files(chromosome_file)
-            bgen_file = exporter.export_files(row.iloc[0])
-            sample_file = exporter.export_files(row.iloc[1])
-
-            subjob_launcher.launch_job(
-                function=run_bolt,
-                inputs={
-                    'possible_chromosomes': chromosome_file,
-                    'bgen_file': bgen_file,
-                    'sample_file': sample_file,
-                    'bed_file': bed_file,
-                    'bim_file': bim_file,
-                    'fam_file': fam_file,
-                    'low_mac_list': low_mac_list,
-                    'final_covariates': final_covariates,
-                    'pheno_names': self._association_pack.pheno_names[0],
-                    'threads': self._association_pack.threads,
-                    'output_prefix': f'{self._output_prefix}_part{idx}',
-                    'found_quantitative_covariates': self._association_pack.found_quantitative_covariates,
-                    'found_categorical_covariates': self._association_pack.found_categorical_covariates,
-                    "is_bolt_non_infinite": self._association_pack.is_bolt_non_infinite,
-                    'ignore_base_covariates': self._association_pack.ignore_base_covariates
-                },
-                outputs=['output'],
-                name=f"BOLT chunk {idx}"
-            )
-        subjob_launcher.submit_and_monitor()
-
-        LOGGER.info("BOLT subjobs finished successfully.")
-
-        # process results
-        for subjob_output in subjob_launcher:
-            output = subjob_output['output']
-            InputFileHandler(output["bolt_log"], download_now=True)
-            InputFileHandler(output["statsfile"], download_now=True)
-            InputFileHandler(output["statsfile_bgen_snps"], download_now=True)
-
-        # get *.stats.gz (but not bgen stats)
-        stats_parts = sorted([
-            f for f in Path().glob(f"{output_prefix}_part*.stats.gz")
-            if not f.name.endswith(".bgen.stats.gz")
-        ])
-        # get *.bgen.stats.gz
-        bgen_stats_parts = sorted(Path().glob(f"{output_prefix}_part*.bgen.stats.gz"))
-        # get *.BOLT.log
-        log_parts = sorted(Path().glob(f"{output_prefix}_part*.BOLT.log"))
-
-        # Concatenate .stats.gz
-        with gzip.open(f"{output_prefix}.stats.gz", "wb") as stats:
-            for i, part_file in enumerate(stats_parts):
-                with gzip.open(part_file, "rb") as fin:
-                    if i > 0:
-                        fin.readline()  # skip header
-                    stats.write(fin.read())
-        # Concatenate .bgen.stats.gz
-        with gzip.open(f"{output_prefix}.bgen.stats.gz", "wb") as bgen_stats:
-            for i, part_file in enumerate(bgen_stats_parts):
-                with gzip.open(part_file, "rb") as fin:
-                    if i > 0:
-                        fin.readline()
-                    bgen_stats.write(fin.read())
-        # Concatenate .BOLT.log
-        with open(f"{output_prefix}.BOLT.log", "w") as log:
-            for part_file in log_parts:
-                with open(part_file, "r") as fin:
-                    log.write(fin.read())
-                    log.write("\n")  # ensure spacing between parts
 
     # This handles processing of mask and whole-exome bgen files for input into BOLT
     def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> Tuple[Path, Path]:
@@ -215,6 +110,59 @@ class BOLTRunner(ToolRunner):
 
         return bgen_output, sample_file
 
+    # Run rare variant association testing using BOLT
+    def _run_bolt(self, possible_chromosomes: Path) -> None:
+        """
+        Run BOLT on the WES data using the covariates and genetic data provided.
+
+        :param possible_chromosomes: Path to the file containing the list of BGEN files and their sample files.
+        :return: None
+        """
+
+        # See the README.md for more information on these parameters
+        # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
+        # REMEMBER we do --noBgenIDcheck because the genetic data is filtered to the covariate file, the bgens are NOT
+        cmd = f'bolt ' + \
+              f'--bed={self._association_pack.genetic_filename}.bed ' \
+              f'--bim={self._association_pack.genetic_filename}.bim ' \
+              f'--fam={self._association_pack.genetic_filename}.fam ' \
+              f'--exclude={self._association_pack.low_mac_list} ' \
+              f'--phenoFile={self._association_pack.final_covariates} ' \
+              f'--phenoCol={self._association_pack.pheno_names[0]} ' \
+              f'--covarFile={self._association_pack.final_covariates} ' \
+              f'--covarMaxLevels=110 ' \
+              f'--LDscoresFile=/home/app/BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
+              f'--geneticMapFile=/home/app/BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
+              f'--numThreads={self._association_pack.threads} ' \
+              f'--statsFile={self._output_prefix}.stats.gz ' \
+              f'--verboseStats ' \
+              f'--bgenSampleFileList={possible_chromosomes.name} ' \
+              f'--noBgenIDcheck ' \
+              f'--LDscoresMatchBp ' \
+              f'--statsFileBgenSnps={self._output_prefix}.bgen.stats.gz '
+
+        if self._association_pack.is_bolt_non_infinite:
+            cmd += '--lmmForceNonInf '
+        else:
+            cmd += '--lmmInfOnly '
+
+        if not self._association_pack.ignore_base_covariates:
+            cmd += f'--covarCol=sex ' \
+                   f'--covarCol=wes_batch ' \
+                   f'--qCovarCol=age ' \
+                   f'--qCovarCol=age_squared ' \
+                   f'--qCovarCol=PC{{1:10}} '
+
+        if len(self._association_pack.found_quantitative_covariates) > 0:
+            for covar in self._association_pack.found_quantitative_covariates:
+                cmd += f'--qCovarCol={covar} '
+        if len(self._association_pack.found_categorical_covariates) > 0:
+            for covar in self._association_pack.found_categorical_covariates:
+                cmd += f'--covarCol={covar} '
+        bolt_log = Path(f'{self._output_prefix}.BOLT.log')
+
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
+
     # This parses the BOLT output file into a usable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:
 
@@ -262,8 +210,7 @@ class BOLTRunner(ToolRunner):
                     # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
                     # index and I don't currently have a way to pass the index through to the Plotter methods...
                     manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
-                                                         bolt_table_gene.query(
-                                                             f'MASK == "{mask}" & MAF == "{maf}"'),
+                                                         bolt_table_gene.query(f'MASK == "{mask}" & MAF == "{maf}"'),
                                                          chrom_column='chrom', pos_column='start',
                                                          alt_column=None,
                                                          id_column='ENST',
@@ -315,107 +262,3 @@ class BOLTRunner(ToolRunner):
             outputs.extend(bgzip_and_tabix(marker_tsv, skip_row=1, sequence_row=2, begin_row=3))
 
         return outputs
-
-
-# Run rare variant association testing using BOLT
-@dxpy.entry_point('run_bolt')
-def run_bolt(possible_chromosomes: str, bgen_file: str, sample_file: str,
-             bed_file: str, bim_file: str, fam_file: str, low_mac_list: str, final_covariates: str,
-             pheno_names: str, threads: int, output_prefix: str, found_quantitative_covariates: List[str],
-             found_categorical_covariates: List[str], is_bolt_non_infinite: bool, ignore_base_covariates: bool) -> dict:
-    """
-    Run BOLT on the WES data using the covariates and genetic data provided.
-
-    :param possible_chromosomes: Path to the file containing the list of BGEN files and their sample files.
-    :param bgen_file: Path to the BGEN file to use
-    :param sample_file: Path to the sample file to use
-    :param bed_file: Path to the plink .bed file of array data
-    :param bim_file: Path to the plink .bim file of array data
-    :param fam_file: Path to the plink .fam file of array data
-    :param low_mac_list:
-    :param final_covariates: Final covariate file to use
-    :param pheno_names: List of phenotype names to test
-    :param threads: Number of threads to use
-    :param output_prefix: Output prefix to use
-    :param found_quantitative_covariates: List of quantitative covariates found in the covariate file
-    :param found_categorical_covariates: List of categorical covariates found in the covariate file
-    :param is_bolt_non_infinite: Whether to run BOLT in non-infinitesimal mode
-    :param ignore_base_covariates: Whether to ignore the base covariates
-
-    :return: None
-    """
-
-    # Download all the files we need locally
-    possible_chromosomes = InputFileHandler(possible_chromosomes).get_file_handle()
-    InputFileHandler(bgen_file).get_file_handle()
-    InputFileHandler(sample_file).get_file_handle()
-    bed_file = InputFileHandler(bed_file).get_file_handle()
-    bim_file = InputFileHandler(bim_file).get_file_handle()
-    fam_file = InputFileHandler(fam_file).get_file_handle()
-    low_mac_list = InputFileHandler(low_mac_list).get_file_handle()
-    final_covariates = InputFileHandler(final_covariates).get_file_handle()
-
-    # set the command executor
-    cmd_exec = build_default_command_executor()
-
-    # set the outputs
-    bolt_log = Path(f'{output_prefix}.BOLT.log')
-    statsfile = Path(f'{output_prefix}.stats.gz')
-    statsfile_bgen_snps = Path(f'{output_prefix}.bgen.stats.gz')
-
-    # See the README.md for more information on these parameters
-    # REMEMBER: The geneticMapFile is for the bfile, not the WES data!
-    # REMEMBER we do --noBgenIDcheck because the genetic data is filtered to the covariate file, the bgens are NOT
-    cmd = f'bolt ' + \
-          f'--bed={bed_file} ' \
-          f'--bim={bim_file} ' \
-          f'--fam={fam_file} ' \
-          f'--exclude={low_mac_list} ' \
-          f'--phenoFile={final_covariates} ' \
-          f'--phenoCol={pheno_names} ' \
-          f'--covarFile={final_covariates} ' \
-          f'--covarMaxLevels=110 ' \
-          f'--LDscoresFile=/home/app/BOLT-LMM_v2.4.1/tables/LDSCORE.1000G_EUR.tab.gz ' \
-          f'--geneticMapFile=/home/app/BOLT-LMM_v2.4.1/tables/genetic_map_hg19_withX.txt.gz ' \
-          f'--numThreads={threads} ' \
-          f'--statsFile={statsfile} ' \
-          f'--verboseStats ' \
-          f'--bgenSampleFileList={possible_chromosomes} ' \
-          f'--noBgenIDcheck ' \
-          f'--LDscoresMatchBp ' \
-          f'--statsFileBgenSnps={statsfile_bgen_snps} '
-
-    if is_bolt_non_infinite:
-        cmd += '--lmmForceNonInf '
-    else:
-        cmd += '--lmmInfOnly '
-
-    if not ignore_base_covariates:
-        cmd += f'--covarCol=sex ' \
-               f'--covarCol=wes_batch ' \
-               f'--qCovarCol=age ' \
-               f'--qCovarCol=age_squared ' \
-               f'--qCovarCol=PC{{1:10}} '
-
-    if len(found_quantitative_covariates) > 0:
-        for covar in found_quantitative_covariates:
-            cmd += f'--qCovarCol={covar} '
-    if len(found_categorical_covariates) > 0:
-        for covar in found_categorical_covariates:
-            cmd += f'--covarCol={covar} '
-
-    cmd_exec.run_cmd_on_docker(cmd, stdout_file=bolt_log)
-
-    # check that all the output files were created
-    for file in [bolt_log, statsfile, statsfile_bgen_snps]:
-        if not file.exists():
-            raise dxpy.AppError(f'BOLT failed to produce expected output file: {file}')
-
-    exporter = ExportFileHandler()
-    output = {
-        'bolt_log': exporter.export_files(bolt_log),
-        'statsfile': exporter.export_files(statsfile),
-        'statsfile_bgen_snps': exporter.export_files(statsfile_bgen_snps),
-    }
-
-    return output

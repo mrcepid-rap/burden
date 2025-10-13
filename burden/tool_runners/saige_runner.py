@@ -21,17 +21,12 @@ class SAIGERunner(ToolRunner):
 
     def run_tool(self) -> None:
 
-        # Prep bgen files for a run:
-        self._logger.info("Downloading and filtering raw bgen files")
-        thread_utility = ThreadUtility(self._association_pack.threads,
-                                       thread_factor=4)
-
         # 1. Run SAIGE step one without parallelisation
         self._logger.info("Running SAIGE step 1...")
         self._outputs.append(self._saige_step_one())
 
         # 2. Run SAIGE step two WITH parallelisation by chromosome
-        self._logger.info("Running SAIGE step 2...")
+        self._logger.info("Running SAIGE step 2 with subjobs...")
 
         all_step2_outputs = self._multithread_step2()
 
