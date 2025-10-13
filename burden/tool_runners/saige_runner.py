@@ -150,8 +150,8 @@ class SAIGERunner(ToolRunner):
             # result["output"] is already a list of dicts
             for r in result["output"]:
                 # download subjob outputs to local machine
-                InputFileHandler(r["current_log"], download_now=True).get_file_handle()
-                InputFileHandler(r["saige_output"], download_now=True).get_file_handle()
+                InputFileHandler(r["current_log"], download_now=True)
+                InputFileHandler(r["saige_output"], download_now=True)
                 step2_outputs.append(r)
 
         return step2_outputs
