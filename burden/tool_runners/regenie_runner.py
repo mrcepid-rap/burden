@@ -8,7 +8,7 @@ from general_utilities.association_resources import define_covariate_string, \
     bgzip_and_tabix, define_field_names_from_tarball_prefix
 from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
-from general_utilities.import_utils.import_lib import download_bgen_file, LOGGER
+from general_utilities.import_utils.import_lib import LOGGER
 from general_utilities.job_management.command_executor import build_default_command_executor
 from general_utilities.job_management.joblauncher_factory import joblauncher_factory
 from general_utilities.job_management.thread_utility import ThreadUtility
@@ -134,7 +134,6 @@ class REGENIERunner(ToolRunner):
         exporter = ExportFileHandler(delete_on_upload=False)
 
         for chromosome in self._association_pack.bgen_dict:
-
             # make a list of all annotation files for this chromosome
             anno_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.annotationFile.txt'))
             # make a list of the mask files for this chromosome
@@ -154,7 +153,8 @@ class REGENIERunner(ToolRunner):
             launcher.launch_job(function=run_regenie_step2,
                                 inputs={
                                     "bgen_file": self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
-                                    "bgen_sample": self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
+                                    "bgen_sample": self._association_pack.bgen_dict[chromosome][
+                                        'sample'].get_input_str(),
                                     "bgen_index": self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
                                     "chromosome": chromosome,
                                     "tarball_prefixes": self._association_pack.tarball_prefixes,
@@ -186,8 +186,6 @@ class REGENIERunner(ToolRunner):
                 InputFileHandler(r["current_log"], download_now=True).get_file_handle()
                 InputFileHandler(r["regenie_output"], download_now=True).get_file_handle()
                 step2_outputs.append(r)
-
-        # all_step2_outputs.extend(step2_outputs)  # Collect all results
 
         return step2_outputs
 
@@ -371,29 +369,19 @@ def run_regenie_step2(
                                       )
     thread_utility.submit_and_monitor()
 
-    # collect results from thread_utility
-    results = []
+    # collect results from thread_utility and export files
+    exporter = ExportFileHandler()
+    output = []
     for result in thread_utility:
-        results.append({
+        output.append({
             "tarball_prefix": result["tarball_prefix"],
             "finished_chromosome": result["chromosome"],
-            "current_log": result["regenie_log"],
-            "regenie_output": result["regenie_output"]
+            "current_log": exporter.export_files(result["regenie_log"]),
+            "regenie_output": exporter.export_files(result["regenie_output"])
         })
 
-    exporter = ExportFileHandler()
-
-    # return
     return {
-        "output": [
-            {
-                "tarball_prefix": r["tarball_prefix"],
-                "finished_chromosome": r["finished_chromosome"],
-                "current_log": exporter.export_files(r["current_log"]),
-                "regenie_output": exporter.export_files(r["regenie_output"])
-            }
-            for r in results
-        ]
+        "output": output
     }
 
 

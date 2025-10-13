@@ -8,7 +8,6 @@ from general_utilities.association_resources import define_field_names_from_tarb
     bgzip_and_tabix, LOGGER
 from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
-from general_utilities.import_utils.import_lib import download_bgen_file
 from general_utilities.job_management.command_executor import build_default_command_executor
 from general_utilities.job_management.joblauncher_factory import joblauncher_factory
 from general_utilities.job_management.thread_utility import ThreadUtility
@@ -118,13 +117,8 @@ class SAIGERunner(ToolRunner):
         exporter = ExportFileHandler(delete_on_upload=False)
 
         for chromosome in self._association_pack.bgen_dict:
-
             # make a list of the setlist files for this chromosome
             group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
-
-            # print all the files in the current directory for debugging
-            print(f"Files in current directory: {[str(f) for f in Path('.').iterdir()]}")
-
 
             # export the files for each subjob
             gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
@@ -136,7 +130,7 @@ class SAIGERunner(ToolRunner):
             launcher.launch_job(
                 function=run_saige_step_two,
                 inputs={
-                    'bgen_file':  self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
+                    'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
                     'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
                     'sample_file': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
                     'chromosome': chromosome,
@@ -219,7 +213,7 @@ class SAIGERunner(ToolRunner):
 
 @dxpy.entry_point('run_saige_step_two')
 def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
-                    chromosome: str, tarball_prefixes: List[str], gmmatmodelfile: str,
+                       chromosome: str, tarball_prefixes: List[str], gmmatmodelfile: str,
                        sparsegrmfile: str, sparsegrmsampleidfile: str, group_files: List[str],
                        is_binary: bool) -> Dict[str, Any]:
     """
@@ -280,29 +274,19 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
                                       )
     thread_utility.submit_and_monitor()
 
-    # collect results from thread_utility
-    results = []
+    # collect results from thread_utility and export files
+    exporter = ExportFileHandler()
+    output = []
     for result in thread_utility:
-        results.append({
+        output.append({
             "tarball_prefix": result["tarball_prefix"],
             "finished_chromosome": result["chromosome"],
-            "saige_log_file": result["saige_log_file"],
-            "saige_output": result["saige_output"]
+            "saige_log_file": exporter.export_files(result["saige_log_file"]),
+            "saige_output": exporter.export_files(result["saige_output"])
         })
 
-    exporter = ExportFileHandler()
-
-    # return
     return {
-        "output": [
-            {
-                "tarball_prefix": r["tarball_prefix"],
-                "finished_chromosome": r["finished_chromosome"],
-                "saige_log_file": exporter.export_files(r["saige_log_file"]),
-                "saige_output": exporter.export_files(r["saige_output"])
-            }
-            for r in results
-        ]
+        "output": output
     }
 
 
