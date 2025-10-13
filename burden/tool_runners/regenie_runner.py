@@ -151,6 +151,7 @@ class REGENIERunner(ToolRunner):
         samples_include = exporter.export_files(samples_include)
         fit_out_pred = exporter.export_files(fit_out_pred)
         fit_out_loco = exporter.export_files(fit_out_loco)
+        phenotype_file = exporter.export_files(self._association_pack.final_covariates)
         anno_files = [exporter.export_files(af) for af in anno_files]
         mask_files = [exporter.export_files(mf) for mf in mask_files]
         setlist_files = [exporter.export_files(sf) for sf in setlist_files]
@@ -174,14 +175,14 @@ class REGENIERunner(ToolRunner):
 
         launcher.launch_job(function=run_regenie_step2,
                             inputs={
-                                "bgen_file": self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
-                                "bgen_sample": self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
-                                "bgen_index": self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
+                                "bgen_file": {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str()},
+                                "bgen_sample": {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str()},
+                                "bgen_index": {'$dnanexus_link': self._association_pack.bgen_dict[chromosome]['index'].get_input_str()},
                                 "chromosome": chromosome,
                                 "tarball_prefixes": self._association_pack.tarball_prefixes,
                                 "samples_include": samples_include,
-                                "covariate_file": self._association_pack.final_covariates,
-                                "pheno_file": self._association_pack.final_covariates,
+                                "covariate_file": phenotype_file,
+                                "pheno_file": phenotype_file,
                                 "pheno_column": self._association_pack.pheno_names[0],
                                 "fit_out_pred": fit_out_pred,
                                 "fit_out_loco": fit_out_loco,
