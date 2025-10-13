@@ -48,6 +48,7 @@ class REGENIERunner(ToolRunner):
                 tarball_prefix = result['tarball_prefix']
                 finished_chromosome = result['finished_chromosome']
                 current_log = InputFileHandler(result['current_log']).get_file_handle()
+                InputFileHandler(result['regenie_output']).get_file_handle()
 
                 completed_gene_tables.append(self._process_regenie_output(tarball_prefix,
                                                                           finished_chromosome))
