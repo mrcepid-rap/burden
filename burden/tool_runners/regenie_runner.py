@@ -131,7 +131,7 @@ class REGENIERunner(ToolRunner):
         fit_out_loco = Path('fit_out_1.loco')
 
         # set the exporter
-        exporter = ExportFileHandler()
+        exporter = ExportFileHandler(delete_on_upload=False)
 
         for chromosome in self._association_pack.bgen_dict:
 
@@ -142,14 +142,11 @@ class REGENIERunner(ToolRunner):
             # make a list of the setlist files for this chromosome
             setlist_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.setListFile.txt'))
 
-            # print all the files in the current directory for debugging
-            print(f"Files in current directory: {[str(f) for f in Path('.').iterdir()]}")
-
             # export the files to DX for each subjob
             samples_include = exporter.export_files(samples_include)
             fit_out_pred = exporter.export_files(fit_out_pred)
             fit_out_loco = exporter.export_files(fit_out_loco)
-            phenotype_file = exporter.export_files(InputFileHandler(self._association_pack.final_covariates).get_file_handle())
+            phenotype_file = exporter.export_files(self._association_pack.final_covariates)
             anno_files = [exporter.export_files(af) for af in anno_files]
             mask_files = [exporter.export_files(mf) for mf in mask_files]
             setlist_files = [exporter.export_files(sf) for sf in setlist_files]

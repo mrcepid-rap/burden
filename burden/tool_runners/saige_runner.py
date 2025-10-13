@@ -120,7 +120,7 @@ class SAIGERunner(ToolRunner):
         launcher = joblauncher_factory()
 
         # set the exporter
-        exporter = ExportFileHandler()
+        exporter = ExportFileHandler(delete_on_upload=False)
 
         for chromosome in self._association_pack.bgen_dict:
 
