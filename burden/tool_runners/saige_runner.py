@@ -262,7 +262,7 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
         LOGGER.info(f"Running for the mask {tarball_prefix}")
 
         # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
-        if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
+        if Path(f'{tarball_prefix}.{chromosome}.SAIGE.groupFile.txt').exists():
             thread_utility.launch_job(function=saige_step_two,
                                       inputs={
                                           "tarball_prefix": tarball_prefix,
