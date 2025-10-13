@@ -278,6 +278,11 @@ def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam
         bgen_file = exporter.export_files(row.iloc[0])
         sample_file = exporter.export_files(row.iloc[1])
 
+        print(bgen_file)
+        print(sample_file)
+
+        return
+
         subjob_launcher.launch_job(
             function=run_bolt,
             inputs={
