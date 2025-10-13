@@ -155,6 +155,23 @@ class REGENIERunner(ToolRunner):
         mask_files = [exporter.export_files(mf) for mf in mask_files]
         setlist_files = [exporter.export_files(sf) for sf in setlist_files]
 
+        print(self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str())
+        print(self._association_pack.bgen_dict[chromosome]['sample'].get_input_str())
+        print(chromosome)
+        print(self._association_pack.tarball_prefixes)
+        print(samples_include)
+        print(self._association_pack.final_covariates)
+        print(self._association_pack.pheno_names[0])
+        print(fit_out_pred)
+        print(fit_out_loco)
+        print(anno_files)
+        print(mask_files)
+        print(setlist_files)
+        print(self._association_pack.found_quantitative_covariates)
+        print(self._association_pack.found_categorical_covariates)
+        print(self._association_pack.is_binary)
+        print(self._association_pack.ignore_base_covariates)
+
         launcher.launch_job(function=run_regenie_step2,
                             inputs={
                                 "bgen_file": self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),

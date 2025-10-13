@@ -44,18 +44,6 @@ class BOLTRunner(ToolRunner):
                             },
                             outputs=["bgen_output", "sample_file"]
                         )
-                    if self._association_pack.run_marker_tests:
-                        # This makes use of a utility class from AssociationResources since bgen filtering/processing is
-                        # IDENTICAL to that done for SAIGE. Do not want to duplicate code!
-                        download_utility = ThreadUtility(self._association_pack.threads, thread_factor=4)
-                        download_utility.launch_job(
-                            function=download_bgen_file,
-                            inputs={
-                                "chrom_bgen_index": self._association_pack.bgen_dict[chromosome_chunk],
-                                "chromosome": chromosome_chunk,
-                            }
-                        )
-                        download_utility.submit_and_monitor()
             thread_utility.submit_and_monitor()
 
             for result in thread_utility:
