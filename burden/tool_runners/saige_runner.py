@@ -127,6 +127,10 @@ class SAIGERunner(ToolRunner):
             # make a list of the setlist files for this chromosome
             group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
 
+            # print all the files in the current directory for debugging
+            print(f"Files in current directory: {[str(f) for f in Path('.').iterdir()]}")
+
+
             # export the files for each subjob
             gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
             sparsegrmfile = exporter.export_files(f"{self._association_pack.sparse_grm}")
