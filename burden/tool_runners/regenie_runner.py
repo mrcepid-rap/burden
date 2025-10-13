@@ -146,7 +146,7 @@ class REGENIERunner(ToolRunner):
             samples_include = exporter.export_files(samples_include)
             fit_out_pred = exporter.export_files(fit_out_pred)
             fit_out_loco = exporter.export_files(fit_out_loco)
-            phenotype_file = exporter.export_files(self._association_pack.final_covariates)
+            phenotype_file = exporter.export_files(InputFileHandler(self._association_pack.final_covariates).get_file_handle())
             anno_files = [exporter.export_files(af) for af in anno_files]
             mask_files = [exporter.export_files(mf) for mf in mask_files]
             setlist_files = [exporter.export_files(sf) for sf in setlist_files]
