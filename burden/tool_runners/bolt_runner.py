@@ -8,7 +8,7 @@ import pandas as pd
 from general_utilities.association_resources import define_field_names_from_pandas, bgzip_and_tabix
 from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
-from general_utilities.import_utils.import_lib import download_bgen_file, LOGGER
+from general_utilities.import_utils.import_lib import LOGGER
 from general_utilities.job_management.command_executor import build_default_command_executor
 from general_utilities.job_management.joblauncher_factory import joblauncher_factory
 from general_utilities.job_management.thread_utility import ThreadUtility
@@ -55,23 +55,110 @@ class BOLTRunner(ToolRunner):
 
         # 2. Actually run BOLT
         self._logger.info("Running BOLT...")
-        bolt_multithread(poss_chromosomes=possible_chromosomes,
-                         bed_file=Path(f"{self._association_pack.genetic_filename}.bed"),
-                         bim_file=Path(f"{self._association_pack.genetic_filename}.bim"),
-                         fam_file=Path(f"{self._association_pack.genetic_filename}.fam"),
-                         low_mac_list=self._association_pack.low_mac_list,
-                         final_covariates=self._association_pack.final_covariates,
-                         pheno_names=self._association_pack.pheno_names[0],
-                         threads=self._association_pack.threads,
-                         output_prefix=self._output_prefix,
-                         quantitative_covariates=self._association_pack.found_quantitative_covariates,
-                         categorical_covariates=self._association_pack.found_categorical_covariates,
-                         is_bolt_non_infinite=self._association_pack.is_bolt_non_infinite,
-                         ignore_base_covariates=self._association_pack.ignore_base_covariates)
+        self._bolt_multithread()
 
         # 3. Process the outputs
         self._logger.info("Processing BOLT outputs...")
         self._outputs.extend(self._process_bolt_outputs())
+
+    def _bolt_multithread(self, poss_chromosomes: Path) -> None:
+        """
+        Multithread BOLT runner for WGS data.
+
+        :param poss_chromosomes: Path to the file containing the list of BGEN files and their sample files.
+        :return: None
+        """
+
+        LOGGER.info("Starting BOLT run using subjobs...")
+
+        # read in all the possible chromosomes/chunks that we can run
+        poss_chromosomes = pd.read_csv(poss_chromosomes, sep='\t', header=None)
+        print(tarball_prefixes)
+        print(poss_chromosomes)
+        return
+
+        # set the subjob launcher class
+        subjob_launcher = joblauncher_factory()
+
+        # set the file exporter for each chunk
+        exporter = ExportFileHandler()
+        bed_file = exporter.export_files(f"{self._association_pack.genetic_filename}.bed")
+        bim_file = exporter.export_files(f"{self._association_pack.genetic_filename}.bim")
+        fam_file = exporter.export_files(f"{self._association_pack.genetic_filename}.fam")
+        low_mac_list = exporter.export_files(self._association_pack.low_mac_list)
+        final_covariates = exporter.export_files(self._association_pack.final_covariates)
+
+        for idx, row in poss_chromosomes.iterrows():
+            # write each row as a new file, so that we can launch a subjob for each
+            chromosome_file = Path(f'chromosome_{idx}.txt')
+            chromosome_file.write_text(f'{row.iloc[0]}\t{row.iloc[1]}\n')
+            chromosome_file = exporter.export_files(chromosome_file)
+            bgen_file = exporter.export_files(row.iloc[0])
+            sample_file = exporter.export_files(row.iloc[1])
+
+            subjob_launcher.launch_job(
+                function=run_bolt,
+                inputs={
+                    'possible_chromosomes': chromosome_file,
+                    'bgen_file': bgen_file,
+                    'sample_file': sample_file,
+                    'bed_file': bed_file,
+                    'bim_file': bim_file,
+                    'fam_file': fam_file,
+                    'low_mac_list': low_mac_list,
+                    'final_covariates': final_covariates,
+                    'pheno_names': self._association_pack.pheno_names[0],
+                    'threads': self._association_pack.threads,
+                    'output_prefix': f'{self._output_prefix}_part{idx}',
+                    'found_quantitative_covariates': self._association_pack.found_quantitative_covariates,
+                    'found_categorical_covariates': self._association_pack.found_categorical_covariates,
+                    "is_bolt_non_infinite": self._association_pack.is_bolt_non_infinite,
+                    'ignore_base_covariates': self._association_pack.ignore_base_covariates
+                },
+                outputs=['output'],
+                name=f"BOLT chunk {idx}"
+            )
+        subjob_launcher.submit_and_monitor()
+
+        LOGGER.info("BOLT subjobs finished successfully.")
+
+        # process results
+        for subjob_output in subjob_launcher:
+            output = subjob_output['output']
+            InputFileHandler(output["bolt_log"], download_now=True)
+            InputFileHandler(output["statsfile"], download_now=True)
+            InputFileHandler(output["statsfile_bgen_snps"], download_now=True)
+
+        # get *.stats.gz (but not bgen stats)
+        stats_parts = sorted([
+            f for f in Path().glob(f"{output_prefix}_part*.stats.gz")
+            if not f.name.endswith(".bgen.stats.gz")
+        ])
+        # get *.bgen.stats.gz
+        bgen_stats_parts = sorted(Path().glob(f"{output_prefix}_part*.bgen.stats.gz"))
+        # get *.BOLT.log
+        log_parts = sorted(Path().glob(f"{output_prefix}_part*.BOLT.log"))
+
+        # Concatenate .stats.gz
+        with gzip.open(f"{output_prefix}.stats.gz", "wb") as stats:
+            for i, part_file in enumerate(stats_parts):
+                with gzip.open(part_file, "rb") as fin:
+                    if i > 0:
+                        fin.readline()  # skip header
+                    stats.write(fin.read())
+        # Concatenate .bgen.stats.gz
+        with gzip.open(f"{output_prefix}.bgen.stats.gz", "wb") as bgen_stats:
+            for i, part_file in enumerate(bgen_stats_parts):
+                with gzip.open(part_file, "rb") as fin:
+                    if i > 0:
+                        fin.readline()
+                    bgen_stats.write(fin.read())
+        # Concatenate .BOLT.log
+        with open(f"{output_prefix}.BOLT.log", "w") as log:
+            for part_file in log_parts:
+                with open(part_file, "r") as fin:
+                    log.write(fin.read())
+                    log.write("\n")  # ensure spacing between parts
 
     # This handles processing of mask and whole-exome bgen files for input into BOLT
     def _process_bolt_bgen_file(self, tarball_prefix: str, chromosome: str) -> Tuple[Path, Path]:
@@ -228,124 +315,6 @@ class BOLTRunner(ToolRunner):
             outputs.extend(bgzip_and_tabix(marker_tsv, skip_row=1, sequence_row=2, begin_row=3))
 
         return outputs
-
-
-def bolt_multithread(poss_chromosomes: Path, bed_file: Path, bim_file: Path, fam_file: Path, low_mac_list: Path,
-                     final_covariates: Path,
-                     pheno_names: str, threads: int, output_prefix: str, quantitative_covariates: List,
-                     categorical_covariates: List,
-                     is_bolt_non_infinite: bool, ignore_base_covariates: bool) -> None:
-    """
-    Multithread BOLT runner for WGS data.
-
-    :param poss_chromosomes: Path to the file containing the list of BGEN files and their sample files.
-    :param bed_file: Path to the plink .bed file of array data
-    :param bim_file: Path to the plink .bim file of array data
-    :param fam_file: Path to the plink .fam file of array data
-    :param low_mac_list: Path to the list of low MAC markers to exclude
-    :param final_covariates: Final covariate file to use
-    :param pheno_names: List of phenotype names to test
-    :param threads: Number of threads to use
-    :param output_prefix: Output prefix to use
-    :param quantitative_covariates: List of quantitative covariates found in the covariate file
-    :param categorical_covariates: List of categorical covariates found in the covariate file
-    :param is_bolt_non_infinite: Whether to run BOLT non-infinitesimal
-    :param ignore_base_covariates: Whether to ignore the base covariates
-    :return: None
-    """
-
-    LOGGER.info("Starting BOLT run using subjobs...")
-
-    # read in all the possible chromosomes/chunks that we can run
-    poss_chromosomes = pd.read_csv(poss_chromosomes, sep='\t', header=None)
-
-    # set the subjob launcher class
-    subjob_launcher = joblauncher_factory()
-
-    # set the file exporter for each chunk
-    exporter = ExportFileHandler()
-    bed_file = exporter.export_files(bed_file)
-    bim_file = exporter.export_files(bim_file)
-    fam_file = exporter.export_files(fam_file)
-    low_mac_list = exporter.export_files(low_mac_list)
-    final_covariates = exporter.export_files(final_covariates)
-
-    for idx, row in poss_chromosomes.iterrows():
-        # write each row as a new file, so that we can launch a subjob for each
-        chromosome_file = Path(f'chromosome_{idx}.txt')
-        chromosome_file.write_text(f'{row.iloc[0]}\t{row.iloc[1]}\n')
-        chromosome_file = exporter.export_files(chromosome_file)
-        bgen_file = exporter.export_files(row.iloc[0])
-        sample_file = exporter.export_files(row.iloc[1])
-
-        print(bgen_file)
-        print(sample_file)
-
-        return
-
-        subjob_launcher.launch_job(
-            function=run_bolt,
-            inputs={
-                'possible_chromosomes': chromosome_file,
-                'bgen_file': bgen_file,
-                'sample_file': sample_file,
-                'bed_file': bed_file,
-                'bim_file': bim_file,
-                'fam_file': fam_file,
-                'low_mac_list': low_mac_list,
-                'final_covariates': final_covariates,
-                'pheno_names': pheno_names,
-                'threads': threads,
-                'output_prefix': f'{output_prefix}_part{idx}',
-                'found_quantitative_covariates': quantitative_covariates,
-                'found_categorical_covariates': categorical_covariates,
-                "is_bolt_non_infinite": is_bolt_non_infinite,
-                'ignore_base_covariates': ignore_base_covariates
-            },
-            outputs=['output'],
-            name=f"BOLT chunk {idx}"
-        )
-    subjob_launcher.submit_and_monitor()
-
-    LOGGER.info("BOLT subjobs finished successfully.")
-
-    # process results
-    for subjob_output in subjob_launcher:
-        output = subjob_output['output']
-        InputFileHandler(output["bolt_log"], download_now=True)
-        InputFileHandler(output["statsfile"], download_now=True)
-        InputFileHandler(output["statsfile_bgen_snps"], download_now=True)
-
-    # get *.stats.gz (but not bgen stats)
-    stats_parts = sorted([
-        f for f in Path().glob(f"{output_prefix}_part*.stats.gz")
-        if not f.name.endswith(".bgen.stats.gz")
-    ])
-    # get *.bgen.stats.gz
-    bgen_stats_parts = sorted(Path().glob(f"{output_prefix}_part*.bgen.stats.gz"))
-    # get *.BOLT.log
-    log_parts = sorted(Path().glob(f"{output_prefix}_part*.BOLT.log"))
-
-    # Concatenate .stats.gz
-    with gzip.open(f"{output_prefix}.stats.gz", "wb") as stats:
-        for i, part_file in enumerate(stats_parts):
-            with gzip.open(part_file, "rb") as fin:
-                if i > 0:
-                    fin.readline()  # skip header
-                stats.write(fin.read())
-    # Concatenate .bgen.stats.gz
-    with gzip.open(f"{output_prefix}.bgen.stats.gz", "wb") as bgen_stats:
-        for i, part_file in enumerate(bgen_stats_parts):
-            with gzip.open(part_file, "rb") as fin:
-                if i > 0:
-                    fin.readline()
-                bgen_stats.write(fin.read())
-    # Concatenate .BOLT.log
-    with open(f"{output_prefix}.BOLT.log", "w") as log:
-        for part_file in log_parts:
-            with open(part_file, "r") as fin:
-                log.write(fin.read())
-                log.write("\n")  # ensure spacing between parts
 
 
 # Run rare variant association testing using BOLT
