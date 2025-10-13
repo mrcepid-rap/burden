@@ -26,14 +26,6 @@ class SAIGERunner(ToolRunner):
         thread_utility = ThreadUtility(self._association_pack.threads,
                                        thread_factor=4)
 
-        for chromosome in self._association_pack.bgen_dict:
-            # This makes use of a utility class from AssociationResources since bgen filtering/processing is
-            # IDENTICAL to that done for BOLT.
-            thread_utility.launch_job(
-                function=download_bgen_file,
-                inputs={'chrom_bgen_index': self._association_pack.bgen_dict[chromosome]})
-        thread_utility.submit_and_monitor()
-
         # 1. Run SAIGE step one without parallelisation
         self._logger.info("Running SAIGE step 1...")
         self._outputs.append(self._saige_step_one())
