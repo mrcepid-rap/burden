@@ -4,7 +4,6 @@ from typing import List, Tuple
 
 import pandas as pd
 from general_utilities.association_resources import define_field_names_from_pandas, bgzip_and_tabix
-from general_utilities.import_utils.import_lib import download_bgen_file
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
