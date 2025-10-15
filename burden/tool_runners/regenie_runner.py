@@ -136,6 +136,7 @@ class REGENIERunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
             # make a list of all annotation files for this chromosome
             anno_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.annotationFile.txt'))
+            print(anno_files)
             # make a list of the mask files for this chromosome
             mask_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.maskfile.txt'))
             # make a list of the setlist files for this chromosome
@@ -338,7 +339,9 @@ def run_regenie_step2(
     for tarball_prefix in tarball_prefixes:
 
         LOGGER.info(f"Running for the mask {tarball_prefix}")
-
+        # print all the files in the current directory
+        for path in Path('.').glob('*'):
+            LOGGER.info(f'Found file: {path}')
         # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
         if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
             thread_utility.launch_job(function=regenie_step_two,
