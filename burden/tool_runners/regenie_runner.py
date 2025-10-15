@@ -133,6 +133,13 @@ class REGENIERunner(ToolRunner):
         # set the exporter
         exporter = ExportFileHandler(delete_on_upload=False)
 
+        # print all files in the current directory
+        for path in Path('.').glob('*'):
+            LOGGER.info(f'Found file: {path}')
+
+        print("chromosomes to run:", self._association_pack.bgen_dict.keys())
+        print("masks to run:", self._association_pack.tarball_prefixes)
+
         for chromosome in self._association_pack.bgen_dict:
             # make a list of all annotation files for this chromosome
             anno_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.annotationFile.txt'))
