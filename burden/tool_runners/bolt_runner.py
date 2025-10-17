@@ -165,6 +165,15 @@ class BOLTRunner(ToolRunner):
     # This parses the BOLT output file into a usable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:
 
+        pd.set_option('display.max_rows', None)
+
+        # print all files in the current directory for debugging
+        from pathlib import Path
+        current_dir = Path('.')
+        print("Current directory contents:")
+        for file in current_dir.iterdir():
+            print(file.name)
+
         # First read in the BOLT stats file:
         bolt_table = pd.read_csv(f'{self._output_prefix}.bgen.stats.gz', sep="\t")
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
