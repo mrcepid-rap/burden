@@ -339,6 +339,10 @@ def run_regenie_step2(
     for setlist_file in setlist_file:
         InputFileHandler(setlist_file, download_now=True)
 
+    print ("Files in current directory:")
+    for path in Path('.').glob('*'):
+        LOGGER.info(f'Found file: {path}')
+
     # 4. Run step 2 of regenie
     LOGGER.info("Running REGENIE step 2")
     thread_utility = ThreadUtility(thread_factor=1)
