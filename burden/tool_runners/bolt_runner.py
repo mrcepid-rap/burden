@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 import pandas as pd
 from general_utilities.association_resources import define_field_names_from_pandas, bgzip_and_tabix
+from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
@@ -243,11 +244,18 @@ class BOLTRunner(ToolRunner):
         # Read in the variant index (per-chromosome and mash together)
         if self._association_pack.run_marker_tests:
             variant_index = []
-            # Open all chromosome indicies and load them into a list and append them together
-            for chromosome_chunk in self._association_pack.bgen_dict:
-                variant_index.append(pd.read_csv(f'{chromosome_chunk}.filtered.vep.tsv.gz',
-                                                 sep="\t",
-                                                 dtype={'SIFT': str, 'POLYPHEN': str}))
+            # # Open all chromosome indicies and load them into a list and append them together
+            # for chromosome_chunk in self._association_pack.bgen_dict:
+            #     variant_index.append(pd.read_csv(f'{chromosome_chunk}.filtered.vep.tsv.gz',
+            #                                      sep="\t",
+            #                                      dtype={'SIFT': str, 'POLYPHEN': str}))
+            #
+            # Open all chromosome indices (or single index if one chromosome processing) and load them into a list
+            # and append them together
+            for chromosome, files in self._association_pack.bgen_dict.keys():
+                local_vep = InputFileHandler(files['vep'], download_now=True).get_file_handle()
+                variant_index.append(
+                    pd.read_csv(local_vep, sep="\t", dtype={'SIFT': str, 'POLYPHEN': str,}))
 
             variant_index = pd.concat(variant_index)
             variant_index = variant_index.set_index('varID')
