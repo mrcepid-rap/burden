@@ -343,6 +343,16 @@ def run_regenie_step2(
     for path in Path('.').glob('*'):
         LOGGER.info(f'Found file: {path}')
 
+    sample_df = pd.read_csv(sample_file, sep="\t", low_memory=False)
+    # if the columns are ID | missing | sex
+    if list(sample_df.columns) == ['ID', 'missing', 'sex']:
+        # Duplicate ID into ID_1 and ID_2
+        sample_df['ID_1'] = sample_df['ID']
+        sample_df['ID_2'] = sample_df['ID']
+        # Reorder columns
+        sample_df = sample_df[['ID_1', 'ID_2', 'missing', 'sex']]
+        sample_df.to_csv(Path(sample_file), sep=" ", index=False)
+
     # 4. Run step 2 of regenie
     LOGGER.info("Running REGENIE step 2")
     thread_utility = ThreadUtility(thread_factor=1)
