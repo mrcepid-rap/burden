@@ -252,8 +252,9 @@ class BOLTRunner(ToolRunner):
             #
             # Open all chromosome indices (or single index if one chromosome processing) and load them into a list
             # and append them together
-            for chromosome, files in self._association_pack.bgen_dict.keys():
-                local_vep = InputFileHandler(files['vep'], download_now=True).get_file_handle()
+            for chromosome_chunk in self._association_pack.bgen_dict.keys():
+                print(chromosome_chunk)
+                local_vep = InputFileHandler(chromosome_chunk['vep'], download_now=True).get_file_handle()
                 variant_index.append(
                     pd.read_csv(local_vep, sep="\t", dtype={'SIFT': str, 'POLYPHEN': str,}))
 
