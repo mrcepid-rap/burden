@@ -316,8 +316,9 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     # 2. run with the addition of a filtered sample file and a flag (if exists) that can be used to filter
     # 3. run with a plink filtering command (worst case scenario) to filter the bgen file by sample inclusion
 
-    # chromsomes should be stripped of the extras
-    chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
+    # chromsomes should be stripped of
+    if chromosome.startswith("chr"):
+        chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
 
     # See the README.md for more information on these parameters
     cmd = f'step2_SPAtests.R ' \
