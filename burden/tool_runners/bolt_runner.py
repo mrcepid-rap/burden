@@ -253,6 +253,9 @@ class BOLTRunner(ToolRunner):
             # Open all chromosome indices (or single index if one chromosome processing) and load them into a list
             # and append them together
             for chromosome_chunk in self._association_pack.bgen_dict.keys():
+                # print all files in current directory
+                for file in Path('.').iterdir():
+                    print(file.name)
                 print(chromosome_chunk)
                 local_vep = InputFileHandler(chromosome_chunk['vep'], download_now=True).get_file_handle()
                 variant_index.append(
