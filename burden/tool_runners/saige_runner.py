@@ -319,6 +319,8 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     # chromsomes should be stripped of
     if chromosome.startswith("chr"):
         chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
+    else:
+        chromosome_num = chromosome
 
     # See the README.md for more information on these parameters
     cmd = f'step2_SPAtests.R ' \
