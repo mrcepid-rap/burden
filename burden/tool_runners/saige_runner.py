@@ -322,6 +322,19 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     else:
         chromosome_num = chromosome
 
+    sample_df = pd.read_csv(sample_file, sep=" ", low_memory=False)
+    print(sample_df.head())
+    # if the columns are ID | missing | sex
+    if list(sample_df.columns) == ['ID', 'missing', 'sex']:
+        LOGGER.info(f"Formatting sample file for REGENIE (likely from WES data)")
+        # Duplicate ID into ID_1 and ID_2
+        sample_df['ID_1'] = sample_df['ID']
+        sample_df['ID_2'] = sample_df['ID']
+        # Reorder columns
+        sample_df = sample_df[['ID_1', 'ID_2', 'missing', 'sex']]
+        print(sample_df)
+        sample_df.to_csv(Path(sample_file), sep=" ", index=False)
+
     # See the README.md for more information on these parameters
     cmd = f'step2_SPAtests.R ' \
           f'--bgenFile={bgen_file} ' \
