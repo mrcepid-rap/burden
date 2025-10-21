@@ -117,6 +117,15 @@ class SAIGERunner(ToolRunner):
         exporter = ExportFileHandler(delete_on_upload=False)
 
         for chromosome in self._association_pack.bgen_dict:
+            # SAIGE will complain if the BGEN contains samples that are not in the phenotype file, so let's make sure
+            # we subset just in case
+            sample = pd.read_csv(self._association_pack.bgen_dict[chromosome]['sample'].get_file_handle(), sep='\t', dtype=str)
+            phenotype = pd.read_csv(self._association_pack.final_covariates, sep=' ', dtype=str)
+            # Subset samples where the ID is in the phenotype file
+            subset = sample[sample['FID'].isin(phenotype['ID_1'])]
+            # Save the result
+            subset.to_csv(f'{chromosome}_sample.txt', sep='\t', index=False)
+
             # make a list of the setlist files for this chromosome
             group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
 
@@ -124,6 +133,7 @@ class SAIGERunner(ToolRunner):
             gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
             sparsegrmfile = exporter.export_files(f"{self._association_pack.sparse_grm}")
             sparsegrmsampleidfile = exporter.export_files(f"{self._association_pack.sparse_grm_sample}")
+            sample_file = exporter.export_files(f'{chromosome}_sample.txt')
 
             group_files = [exporter.export_files(gf) for gf in group_files]
 
@@ -132,7 +142,7 @@ class SAIGERunner(ToolRunner):
                 inputs={
                     'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
                     'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
-                    'sample_file': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
+                    'sample_file':sample_file,
                     'chromosome': chromosome,
                     "tarball_prefixes": self._association_pack.tarball_prefixes,
                     'gmmatmodelfile': gmmatmodelfile,
