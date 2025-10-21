@@ -124,7 +124,7 @@ class SAIGERunner(ToolRunner):
             phenotype = pd.read_csv(self._association_pack.final_covariates, sep=' ', dtype=str)
             print(phenotype)
             # Subset samples where the ID is in the phenotype file
-            subset = sample[sample['FID'].isin(phenotype['ID_1'])]
+            subset = sample[sample.iloc[:, 0].isin(phenotype.iloc[:, 0])]
             # Save the result
             subset.to_csv(f'{chromosome}_sample.txt', sep='\t', index=False)
 
