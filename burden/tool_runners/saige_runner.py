@@ -119,7 +119,7 @@ class SAIGERunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
             # SAIGE will complain if the BGEN contains samples that are not in the phenotype file, so let's make sure
             # we subset just in case
-            sample = pd.read_csv(self._association_pack.bgen_dict[chromosome]['sample'].get_file_handle(), sep='\t', dtype=str)
+            sample = pd.read_csv(self._association_pack.bgen_dict[chromosome]['sample'].get_file_handle(), delim_whitespace=True, dtype=str)
             print(sample)
             phenotype = pd.read_csv(self._association_pack.final_covariates, sep=' ', dtype=str)
             print(phenotype)
