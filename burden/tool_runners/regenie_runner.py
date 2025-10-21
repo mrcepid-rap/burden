@@ -343,7 +343,8 @@ def run_regenie_step2(
     for path in Path('.').glob('*'):
         LOGGER.info(f'Found file: {path}')
 
-    sample_df = pd.read_csv(sample_file, sep="\t", low_memory=False)
+    sample_df = pd.read_csv(sample_file, sep=" ", low_memory=False)
+    print(sample_df.head())
     # if the columns are ID | missing | sex
     if list(sample_df.columns) == ['ID', 'missing', 'sex']:
         LOGGER.info(f"Formatting sample file for REGENIE (likely from WES data)")
