@@ -120,7 +120,9 @@ class SAIGERunner(ToolRunner):
             # SAIGE will complain if the BGEN contains samples that are not in the phenotype file, so let's make sure
             # we subset just in case
             sample = pd.read_csv(self._association_pack.bgen_dict[chromosome]['sample'].get_file_handle(), sep='\t', dtype=str)
+            print(sample)
             phenotype = pd.read_csv(self._association_pack.final_covariates, sep=' ', dtype=str)
+            print(phenotype)
             # Subset samples where the ID is in the phenotype file
             subset = sample[sample['FID'].isin(phenotype['ID_1'])]
             # Save the result
