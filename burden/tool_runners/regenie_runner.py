@@ -346,11 +346,13 @@ def run_regenie_step2(
     sample_df = pd.read_csv(sample_file, sep="\t", low_memory=False)
     # if the columns are ID | missing | sex
     if list(sample_df.columns) == ['ID', 'missing', 'sex']:
+        LOGGER.info(f"Formatting sample file for REGENIE (likely from WES data)")
         # Duplicate ID into ID_1 and ID_2
         sample_df['ID_1'] = sample_df['ID']
         sample_df['ID_2'] = sample_df['ID']
         # Reorder columns
         sample_df = sample_df[['ID_1', 'ID_2', 'missing', 'sex']]
+        print(sample_df)
         sample_df.to_csv(Path(sample_file), sep=" ", index=False)
 
     # 4. Run step 2 of regenie
