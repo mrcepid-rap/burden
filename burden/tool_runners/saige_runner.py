@@ -57,12 +57,33 @@ class SAIGERunner(ToolRunner):
     # Run rare variant association testing using SAIGE-GENE
     def _saige_step_one(self) -> Path:
 
+        # SAIGE will complain if the BGEN contains samples that are not in the phenotype file, so let's make sure
+        # we subset just in case
+        first_sample_key = next(iter(self._association_pack.bgen_dict))
+        sample = pd.read_csv(
+            self._association_pack.bgen_dict[first_sample_key]['sample'].get_file_handle(),
+            delim_whitespace=True,
+            dtype=str
+        )
+        print(sample)
+        phenotype = pd.read_csv(self._association_pack.final_covariates, sep=' ', dtype=str)
+        print(phenotype)
+        # Subset samples where the ID is in the phenotype file
+        subset = phenotype[phenotype.iloc[:, 0].isin(sample.iloc[:, 0])]
+        first_row = pd.DataFrame([[0, 0, 'D']], columns=subset.columns)
+        subset = pd.concat([first_row, subset], ignore_index=True)
+        # the second row must be 0 / 0 / D
+        print(subset)
+        # Save the result
+        phenofile = Path("phenotype_subset_sample.txt")
+        subset.to_csv(phenofile, sep='\t', index=False)
+
         # See the README.md for more information on these parameters
         # Just to note – I previously tried to implement the method that includes variance ratio estimation. However,
         # there are too few low MAC variants in the genotype files to perform this step accurately. The SAIGE
         # documentation includes this step, but I am very unsure how it works...
         cmd = f'step1_fitNULLGLMM.R ' \
-              f'--phenoFile={self._association_pack.final_covariates} ' \
+              f'--phenoFile={phenofile} ' \
               f'--phenoCol={self._association_pack.pheno_names[0]} ' \
               f'--isCovariateTransform=FALSE ' \
               f'--sampleIDColinphenoFile=IID ' \
@@ -117,20 +138,6 @@ class SAIGERunner(ToolRunner):
         exporter = ExportFileHandler(delete_on_upload=False)
 
         for chromosome in self._association_pack.bgen_dict:
-            # SAIGE will complain if the BGEN contains samples that are not in the phenotype file, so let's make sure
-            # we subset just in case
-            sample = pd.read_csv(self._association_pack.bgen_dict[chromosome]['sample'].get_file_handle(), delim_whitespace=True, dtype=str)
-            print(sample)
-            phenotype = pd.read_csv(self._association_pack.final_covariates, sep=' ', dtype=str)
-            print(phenotype)
-            # Subset samples where the ID is in the phenotype file
-            subset = sample[sample.iloc[:, 0].isin(phenotype.iloc[:, 0])]
-            first_row = pd.DataFrame([[0, 0, 'D']], columns=subset.columns)
-            subset = pd.concat([first_row, subset], ignore_index=True)
-            # the second row must be 0 / 0 / D
-            print(subset)
-            # Save the result
-            subset.to_csv(f'{chromosome}_sample.txt', sep='\t', index=False)
 
             # make a list of the setlist files for this chromosome
             group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
