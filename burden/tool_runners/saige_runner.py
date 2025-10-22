@@ -349,7 +349,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
         # Reorder columns
         sample_df = sample_df[['ID_1', 'ID_2', 'missing', 'sex']]
         print(sample_df)
-        sample_df.to_csv(Path(sample_file), sep=" ", index=False)
+        sample_df.to_csv(Path(sample_file), sep="\t", index=False)
 
     # See the README.md for more information on these parameters
     cmd = f'step2_SPAtests.R ' \
