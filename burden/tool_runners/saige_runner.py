@@ -125,6 +125,9 @@ class SAIGERunner(ToolRunner):
             print(phenotype)
             # Subset samples where the ID is in the phenotype file
             subset = sample[sample.iloc[:, 0].isin(phenotype.iloc[:, 0])]
+            first_row = pd.DataFrame([[0, 0, 'D']], columns=subset.columns)
+            subset = pd.concat([first_row, subset], ignore_index=True)
+            # the second row must be 0 / 0 / D
             print(subset)
             # Save the result
             subset.to_csv(f'{chromosome}_sample.txt', sep='\t', index=False)
