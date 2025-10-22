@@ -144,7 +144,6 @@ class SAIGERunner(ToolRunner):
             gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
             sparsegrmfile = exporter.export_files(f"{self._association_pack.sparse_grm}")
             sparsegrmsampleidfile = exporter.export_files(f"{self._association_pack.sparse_grm_sample}")
-            sample_file = exporter.export_files(f'{chromosome}_sample.txt')
 
             group_files = [exporter.export_files(gf) for gf in group_files]
 
@@ -153,7 +152,7 @@ class SAIGERunner(ToolRunner):
                 inputs={
                     'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
                     'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
-                    'sample_file':sample_file,
+                    'sample_file':self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
                     'chromosome': chromosome,
                     "tarball_prefixes": self._association_pack.tarball_prefixes,
                     'gmmatmodelfile': gmmatmodelfile,
