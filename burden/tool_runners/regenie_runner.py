@@ -141,20 +141,21 @@ class REGENIERunner(ToolRunner):
         print("masks to run:", self._association_pack.tarball_prefixes)
 
         for chromosome in self._association_pack.bgen_dict:
+
             # make a list of all annotation files for this chromosome
             anno_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.annotationFile.txt'))
             if not anno_files:
-                raise FileNotFoundError(f"No annotation files found for chromosome {chromosome}")
+                continue
 
             # make a list of the mask files for this chromosome
             mask_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.maskfile.txt'))
             if not mask_files:
-                raise FileNotFoundError(f"No mask files found for chromosome {chromosome}")
+                continue
 
             # make a list of the setlist files for this chromosome
             setlist_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.setListFile.txt'))
             if not setlist_files:
-                raise FileNotFoundError(f"No setlist files found for chromosome {chromosome}")
+                continue
 
             # export the files to DX for each subjob
             samples_include = exporter.export_files(samples_include)
