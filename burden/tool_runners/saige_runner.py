@@ -103,10 +103,10 @@ class SAIGERunner(ToolRunner):
             all_covariates = []
             cat_covars = []
         else:
-            all_covariates = [f'PC{PC}' for PC in range(1, 11)] + ['age', 'age_squared', 'wes_batch']
+            all_covariates = [f'PC{PC}' for PC in range(1, 11)] + ['age', 'age_squared', 'batch']
             if self._association_pack.sex == 2:
                 all_covariates.append('sex')
-            cat_covars = ['wes_batch']
+            cat_covars = ['batch']
 
         all_covariates.extend(self._association_pack.found_quantitative_covariates)
         all_covariates.extend(self._association_pack.found_categorical_covariates)
