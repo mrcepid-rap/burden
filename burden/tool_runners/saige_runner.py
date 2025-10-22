@@ -70,8 +70,6 @@ class SAIGERunner(ToolRunner):
         print(phenotype)
         # Subset samples where the ID is in the phenotype file
         subset = phenotype[phenotype.iloc[:, 0].isin(sample.iloc[:, 0])]
-        first_row = pd.DataFrame([[0, 0, 'D']], columns=subset.columns)
-        subset = pd.concat([first_row, subset], ignore_index=True)
         # the second row must be 0 / 0 / D
         print(subset)
         # Save the result
