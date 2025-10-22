@@ -29,15 +29,16 @@ class BOLTRunner(ToolRunner):
         with open(possible_chromosomes, 'w') as poss_chromosomes:
             for chromosome_chunk in self._association_pack.bgen_dict:
                 for tarball_prefix in self._association_pack.tarball_prefixes:
-                    if Path(f'{tarball_prefix}.{chromosome_chunk}.BOLT.bgen').exists():
-                        thread_utility.launch_job(
-                            function=self._process_bolt_bgen_file,
-                            inputs={
-                                'tarball_prefix': tarball_prefix,
-                                'chromosome': chromosome_chunk
-                            },
-                            outputs=["bgen_output", "sample_file"]
-                        )
+                    if not Path(f'{tarball_prefix}.{chromosome_chunk}.BOLT.bgen').exists():
+                        continue
+                    thread_utility.launch_job(
+                        function=self._process_bolt_bgen_file,
+                        inputs={
+                            'tarball_prefix': tarball_prefix,
+                            'chromosome': chromosome_chunk
+                        },
+                        outputs=["bgen_output", "sample_file"]
+                    )
             thread_utility.submit_and_monitor()
 
             for result in thread_utility:
