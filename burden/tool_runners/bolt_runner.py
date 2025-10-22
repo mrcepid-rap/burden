@@ -26,10 +26,15 @@ class BOLTRunner(ToolRunner):
         # The 'poss_chromosomes.txt' has a slightly different format depending on the data-type being used, but
         # generally has a format of <genetics file>\t<fam file>
         possible_chromosomes = Path('poss_chromosomes.txt')
+        # print current directory contents for debugging
+        for file in Path('.').iterdir():
+            self._logger.debug(f'Found file: {file.name}')
         with open(possible_chromosomes, 'w') as poss_chromosomes:
             for chromosome_chunk in self._association_pack.bgen_dict:
+                print(chromosome_chunk)
                 for tarball_prefix in self._association_pack.tarball_prefixes:
                     if not Path(f'{tarball_prefix}.{chromosome_chunk}.BOLT.bgen').exists():
+                        print(f'{chromosome_chunk} does not exist')
                         continue
                     thread_utility.launch_job(
                         function=self._process_bolt_bgen_file,
