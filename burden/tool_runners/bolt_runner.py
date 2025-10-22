@@ -154,7 +154,7 @@ class BOLTRunner(ToolRunner):
 
         if not self._association_pack.ignore_base_covariates:
             cmd += f'--covarCol=sex ' \
-                   f'--covarCol=wes_batch ' \
+                   f'--covarCol=batch ' \
                    f'--qCovarCol=age ' \
                    f'--qCovarCol=age_squared ' \
                    f'--qCovarCol=PC{{1:10}} '

@@ -123,7 +123,7 @@ class STAARRunner(ToolRunner):
             quant_covars = [f'PC{PC}' for PC in range(1, 11)] + ['age', 'age_squared']
             if sex == 2:
                 quant_covars.append('sex')
-            cat_covars = ['wes_batch']
+            cat_covars = ['batch']
 
         quant_covars.extend(found_quantitative_covariates)
         cat_covars.extend(found_categorical_covariates)
