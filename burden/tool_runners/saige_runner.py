@@ -170,7 +170,7 @@ class SAIGERunner(ToolRunner):
             # result["output"] is already a list of dicts
             for r in result["output"]:
                 # download subjob outputs to local machine
-                InputFileHandler(r["current_log"], download_now=True)
+                InputFileHandler(r["saige_log_file"], download_now=True)
                 InputFileHandler(r["saige_output"], download_now=True)
                 step2_outputs.append(r)
 
@@ -376,7 +376,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     if is_binary:
         cmd = cmd + '--is_Firth_beta=TRUE'
 
-    saige_log_file = Path(f'{tarball_prefix}.{chromosome}.SAIGE_step2.log')
+    saige_log_file = Path(f'*.SAIGE_step2.log')
     cmd_exec.run_cmd_on_docker(cmd, stdout_file=saige_log_file, print_cmd=True)
 
     saige_output = Path(f'{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt')
