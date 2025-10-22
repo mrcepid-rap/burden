@@ -125,6 +125,7 @@ class SAIGERunner(ToolRunner):
             print(phenotype)
             # Subset samples where the ID is in the phenotype file
             subset = sample[sample.iloc[:, 0].isin(phenotype.iloc[:, 0])]
+            print(subset)
             # Save the result
             subset.to_csv(f'{chromosome}_sample.txt', sep='\t', index=False)
 
@@ -334,7 +335,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     else:
         chromosome_num = chromosome
 
-    sample_df = pd.read_csv(sample_file, sep=" ", low_memory=False)
+    sample_df = pd.read_csv(sample_file, delim_whitespace=True, low_memory=False)
     print(sample_df.head())
     # if the columns are ID | missing | sex
     if list(sample_df.columns) == ['ID', 'missing', 'sex']:
