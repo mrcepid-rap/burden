@@ -37,7 +37,7 @@ class SAIGERunner(ToolRunner):
             for result in all_step2_outputs:
                 tarball_prefix = result['tarball_prefix']
                 finished_chromosome = result['finished_chromosome']
-                current_log = InputFileHandler(result['current_log']).get_file_handle()
+                current_log = InputFileHandler(result['saige_log_file']).get_file_handle()
 
                 completed_gene_tables.append(self._process_saige_output(tarball_prefix, finished_chromosome))
 
