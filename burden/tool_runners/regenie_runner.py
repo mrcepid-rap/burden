@@ -133,13 +133,6 @@ class REGENIERunner(ToolRunner):
         # set the exporter
         exporter = ExportFileHandler(delete_on_upload=False)
 
-        # print all files in the current directory
-        for path in Path('.').glob('*'):
-            LOGGER.info(f'Found file: {path}')
-
-        print("chromosomes to run:", self._association_pack.bgen_dict.keys())
-        print("masks to run:", self._association_pack.tarball_prefixes)
-
         for chromosome in self._association_pack.bgen_dict:
 
             # make a list of all annotation files for this chromosome
@@ -347,23 +340,6 @@ def run_regenie_step2(
     for setlist_file in setlist_file:
         InputFileHandler(setlist_file, download_now=True)
 
-    print ("Files in current directory:")
-    for path in Path('.').glob('*'):
-        LOGGER.info(f'Found file: {path}')
-
-    sample_df = pd.read_csv(sample_file, sep=" ", low_memory=False)
-    print(sample_df.head())
-    # if the columns are ID | missing | sex
-    if list(sample_df.columns) == ['ID', 'missing', 'sex']:
-        LOGGER.info(f"Formatting sample file for REGENIE (likely from WES data)")
-        # Duplicate ID into ID_1 and ID_2
-        sample_df['ID_1'] = sample_df['ID']
-        sample_df['ID_2'] = sample_df['ID']
-        # Reorder columns
-        sample_df = sample_df[['ID_1', 'ID_2', 'missing', 'sex']]
-        print(sample_df)
-        sample_df.to_csv(Path(sample_file), sep=" ", index=False)
-
     # 4. Run step 2 of regenie
     LOGGER.info("Running REGENIE step 2")
     thread_utility = ThreadUtility(thread_factor=1)
@@ -371,9 +347,6 @@ def run_regenie_step2(
     for tarball_prefix in tarball_prefixes:
 
         LOGGER.info(f"Running for the mask {tarball_prefix}")
-        # print all the files in the current directory
-        for path in Path('.').glob('*'):
-            LOGGER.info(f'Found file: {path}')
         # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
         if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
             thread_utility.launch_job(function=regenie_step_two,

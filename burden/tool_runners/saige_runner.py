@@ -65,13 +65,9 @@ class SAIGERunner(ToolRunner):
             delim_whitespace=True,
             dtype=str
         )
-        print(sample)
         phenotype = pd.read_csv(self._association_pack.final_covariates, sep=' ', dtype=str)
-        print(phenotype)
         # Subset samples where the ID is in the phenotype file
         subset = phenotype[phenotype.iloc[:, 0].isin(sample.iloc[:, 0])]
-        # the second row must be 0 / 0 / D
-        print(subset)
         # Save the result
         phenofile = Path("phenotype_subset_sample.txt")
         subset.to_csv(phenofile, sep='\t', index=False)
@@ -341,19 +337,6 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
         chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
     else:
         chromosome_num = chromosome
-
-    sample_df = pd.read_csv(sample_file, delim_whitespace=True, low_memory=False)
-    print(sample_df.head())
-    # if the columns are ID | missing | sex
-    if list(sample_df.columns) == ['ID', 'missing', 'sex']:
-        LOGGER.info(f"Formatting sample file for REGENIE (likely from WES data)")
-        # Duplicate ID into ID_1 and ID_2
-        sample_df['ID_1'] = sample_df['ID']
-        sample_df['ID_2'] = sample_df['ID']
-        # Reorder columns
-        sample_df = sample_df[['ID_1', 'ID_2', 'missing', 'sex']]
-        print(sample_df)
-        sample_df.to_csv(Path(sample_file), sep="\t", index=False)
 
     # See the README.md for more information on these parameters
     cmd = f'step2_SPAtests.R ' \
