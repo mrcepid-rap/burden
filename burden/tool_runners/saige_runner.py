@@ -135,6 +135,8 @@ class SAIGERunner(ToolRunner):
 
             # make a list of the setlist files for this chromosome
             group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
+            if not group_files:
+                continue  # skip chromosomes with no group file
 
             # export the files for each subjob
             gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
