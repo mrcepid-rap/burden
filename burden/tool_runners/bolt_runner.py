@@ -31,7 +31,6 @@ class BOLTRunner(ToolRunner):
             self._logger.debug(f'Found file: {file.name}')
         with open(possible_chromosomes, 'w') as poss_chromosomes:
             for chromosome_chunk in self._association_pack.bgen_dict:
-                print(chromosome_chunk)
                 for tarball_prefix in self._association_pack.tarball_prefixes:
                     if not Path(f'{tarball_prefix}.{chromosome_chunk}.BOLT.bgen').exists():
                         print(f'{chromosome_chunk} does not exist')
@@ -172,15 +171,6 @@ class BOLTRunner(ToolRunner):
     # This parses the BOLT output file into a usable format for plotting/R
     def _process_bolt_outputs(self) -> List[Path]:
 
-        pd.set_option('display.max_rows', None)
-
-        # print all files in the current directory for debugging
-        from pathlib import Path
-        current_dir = Path('.')
-        print("Current directory contents:")
-        for file in current_dir.iterdir():
-            print(file.name)
-
         # First read in the BOLT stats file:
         bolt_table = pd.read_csv(f'{self._output_prefix}.bgen.stats.gz', sep="\t")
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
@@ -250,17 +240,7 @@ class BOLTRunner(ToolRunner):
         # Read in the variant index (per-chromosome and mash together)
         if self._association_pack.run_marker_tests:
             variant_index = []
-            # # Open all chromosome indicies and load them into a list and append them together
-            # for chromosome_chunk in self._association_pack.bgen_dict:
-            #     variant_index.append(pd.read_csv(f'{chromosome_chunk}.filtered.vep.tsv.gz',
-            #                                      sep="\t",
-            #                                      dtype={'SIFT': str, 'POLYPHEN': str}))
-            #
-            # Open all chromosome indices (or single index if one chromosome processing) and load them into a list
-            # and append them together
             for chromosome_name, chromosome_info in self._association_pack.bgen_dict.items():
-                print(chromosome_name)
-                print(chromosome_info)
                 local_vep = chromosome_info['vep'].get_file_handle()
                 variant_index.append(
                     pd.read_csv(local_vep, sep="\t", dtype={'SIFT': str, 'POLYPHEN': str, }))
