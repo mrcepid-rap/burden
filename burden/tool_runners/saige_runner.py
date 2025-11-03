@@ -261,6 +261,21 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     for group_file in group_files:
         InputFileHandler(group_file, download_now=True)
 
+        # TODO: remove this - need to fix it in collapsevariants
+        # --- FIX: normalize variant IDs from ':' to '_' for BGEN matching ---
+        group_path = Path(group_file)
+        tmp_path = group_path.with_suffix(group_path.suffix + ".tmp")
+        with group_path.open('r') as infile, tmp_path.open('w') as outfile:
+            for line in infile:
+                parts = line.rstrip('\n').split('\t')
+                if len(parts) > 2:
+                    for i in range(2, len(parts)):
+                        parts[i] = parts[i].replace(':', '_')
+                outfile.write('\t'.join(parts) + '\n')
+        tmp_path.replace(group_path)  # overwrite original in place
+        LOGGER.info(f"Fixed variant delimiters in {group_path.name}")
+        # --- END FIX ---
+
     # 4. Run step 2 of SAIGE
     LOGGER.info("Running SAIGE step 2")
     thread_utility = ThreadUtility(thread_factor=1)
