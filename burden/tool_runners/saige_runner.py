@@ -259,7 +259,7 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     sparsegrmfile = InputFileHandler(sparsegrmfile).get_file_handle()
     sparsegrmsampleidfile = InputFileHandler(sparsegrmsampleidfile).get_file_handle()
     for group_file in group_files:
-        InputFileHandler(group_file, download_now=True)
+        group_file = InputFileHandler(group_file, download_now=True).get_file_handle()
 
         # TODO: remove this - need to fix it in collapsevariants
         # --- FIX: normalize variant IDs from ':' to '_' for BGEN matching ---
