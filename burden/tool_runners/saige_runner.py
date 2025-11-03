@@ -313,7 +313,7 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
                 parts = line.rstrip('\n').split('\t')
                 if len(parts) > 2:
                     for i in range(2, len(parts)):
-                        parts[i] = parts[i].replace(':', '_').replace('chr', '')
+                        parts[i] = parts[i].replace(':', '_')
                 outfile.write('\t'.join(parts) + '\n')
         tmp_path.replace(group_path)  # overwrite original in place
         LOGGER.info(f"[DEBUG] Fixed variant delimiters in {group_path.name}")
