@@ -113,11 +113,11 @@ class LoadModule(ModuleLoader):
         module_tools = {
             'bolt': BOLTRunner,
             'saige': SAIGERunner,
-            'regenie': REGENIERunner
+            'regenie': REGENIERunner,
+            'glm': GLMRunner,
             #'staar': STAARRunner,
-            #'glm': GLMRunner
         }
         if input_tool in module_tools:
             return module_tools[input_tool]
         else:
-            raise dxpy.AppError(f'Tool – {input_tool} – not support. Please try a different input tool!')
+            raise dxpy.AppError(f'Tool – {input_tool} – not supported. Please try a different input tool!')
