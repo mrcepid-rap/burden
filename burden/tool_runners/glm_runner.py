@@ -1,3 +1,5 @@
+"""Execute gene-level GLM runs and downstream plotting for burden analyses."""
+
 from pathlib import Path
 
 import pandas as pd
@@ -11,8 +13,10 @@ from burden.tool_runners.tool_runner import ToolRunner
 
 
 class GLMRunner(ToolRunner):
+    """Run the GLM workflow over all tarball prefixes and available genes."""
 
     def run_tool(self) -> None:
+        """Load input data, fit models, persist results, and generate plots."""
 
         # 1. Do setup for the linear models.
         # This will load all variants, genes, and phenotypes into memory to allow for parallelization
@@ -32,7 +36,7 @@ class GLMRunner(ToolRunner):
                                               incrementor=10)
 
         for tarball_prefix in self._association_pack.tarball_prefixes:
-            print(tarball_prefix)
+            self._logger.debug("Scheduling genotype load for %s", tarball_prefix)
             loader_thread_utility.launch_job(load_linear_model_genetic_data,
                                              inputs={'tarball_prefix': tarball_prefix,
                                                      'tarball_type': self._association_pack.tarball_type},
@@ -70,14 +74,16 @@ class GLMRunner(ToolRunner):
                                                    self._transcripts_table))
 
         # 5. Generate Manhattan Plots
-        plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
-        plot_dir.mkdir()
+        plot_dir = Path(f'{self._output_prefix}_plots')
+        plot_dir.mkdir(parents=True, exist_ok=True)
         self._outputs.append(plot_dir)
-        glm_table = pd.read_csv(Path(f'{self._output_prefix}.genes.GLM.stats.tsv.gz'), sep='\t', )
+        glm_table = pd.read_csv(Path(f'{self._output_prefix}.genes.GLM.stats.tsv.gz'), sep='\t')
 
-        for mask in glm_table['MASK'].value_counts().index:
+        mask_values = glm_table['MASK'].value_counts().index
+        maf_values = glm_table['MAF'].value_counts().index
 
-            for maf in glm_table['MAF'].value_counts().index:
+        for mask in mask_values:
+            for maf in maf_values:
                 # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
                 # index and I don't currently have a way to pass the index through to the Plotter methods...
                 manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
