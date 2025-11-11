@@ -1,14 +1,13 @@
-import csv
-import pandas as pd
 from pathlib import Path
 
+import pandas as pd
+from general_utilities.job_management.thread_utility import ThreadUtility
+from general_utilities.linear_model.linear_model import linear_model_null, \
+    load_linear_model_genetic_data, run_linear_model
 from general_utilities.linear_model.proccess_model_output import process_model_outputs
+from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 from burden.tool_runners.tool_runner import ToolRunner
-from general_utilities.job_management.thread_utility import ThreadUtility
-from general_utilities.linear_model.linear_model import LinearModelResult, linear_model_null, \
-    load_linear_model_genetic_data, run_linear_model
-from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
 
 class GLMRunner(ToolRunner):
@@ -20,11 +19,11 @@ class GLMRunner(ToolRunner):
         # This function returns a class of type LinearModelPack containing info for running GLMs
         self._logger.info("Loading data and running null Linear Model")
         null_model = linear_model_null(self._association_pack.final_covariates,
-                                                    self._association_pack.pheno_names[0],
-                                                    self._association_pack.is_binary,
-                                                    self._association_pack.ignore_base_covariates,
-                                                    self._association_pack.found_quantitative_covariates,
-                                                    self._association_pack.found_categorical_covariates)
+                                       self._association_pack.pheno_names[0],
+                                       self._association_pack.is_binary,
+                                       self._association_pack.ignore_base_covariates,
+                                       self._association_pack.found_quantitative_covariates,
+                                       self._association_pack.found_categorical_covariates)
 
         # 2. Load the tarballs INTO separate genotypes dictionaries
         self._logger.info("Loading Linear Model genotypes")
@@ -35,9 +34,9 @@ class GLMRunner(ToolRunner):
         for tarball_prefix in self._association_pack.tarball_prefixes:
             print(tarball_prefix)
             loader_thread_utility.launch_job(load_linear_model_genetic_data,
-                                      inputs={'tarball_prefix': tarball_prefix,
-                                              'tarball_type': self._association_pack.tarball_type},
-                                      outputs=['tarball_prefix', 'genotype_dict'])
+                                             inputs={'tarball_prefix': tarball_prefix,
+                                                     'tarball_type': self._association_pack.tarball_type},
+                                             outputs=['tarball_prefix', 'genotype_dict'])
 
         loader_thread_utility.submit_and_monitor()
 
@@ -74,7 +73,7 @@ class GLMRunner(ToolRunner):
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
         plot_dir.mkdir()
         self._outputs.append(plot_dir)
-        glm_table = pd.read_csv(Path(f'{self._output_prefix}.genes.glm.stats.tsv.gz'), sep='\t', )
+        glm_table = pd.read_csv(Path(f'{self._output_prefix}.genes.GLM.stats.tsv.gz'), sep='\t', )
 
         for mask in glm_table['MASK'].value_counts().index:
 
