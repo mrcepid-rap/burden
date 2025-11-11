@@ -258,55 +258,12 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     gmmatmodelfile = InputFileHandler(gmmatmodelfile).get_file_handle()
     sparsegrmfile = InputFileHandler(sparsegrmfile).get_file_handle()
     sparsegrmsampleidfile = InputFileHandler(sparsegrmsampleidfile).get_file_handle()
-    # --- DEBUG: Log all input files used in SAIGE step 2 ---
-    def _log_file_info(label, handle):
-        """Helper to safely log info about a file handle or path."""
-        try:
-            path = Path(str(handle))
-            exists = path.exists()
-            size = path.stat().st_size if exists else 'N/A'
-            LOGGER.info(f"[DEBUG] {label}: {path.resolve()} (exists={exists}, size={size})")
-        except Exception as e:
-            LOGGER.warning(f"[DEBUG] Could not resolve {label}: {handle} ({e})")
-
-    bgen_file = InputFileHandler(bgen_file).get_file_handle()
-    _log_file_info("BGEN file", bgen_file)
-
-    bgen_index = InputFileHandler(bgen_index).get_file_handle()
-    _log_file_info("BGEN index", bgen_index)
-
-    sample_file = InputFileHandler(sample_file).get_file_handle()
-    _log_file_info("Sample file", sample_file)
-
-    gmmatmodelfile = InputFileHandler(gmmatmodelfile).get_file_handle()
-    _log_file_info("GMMAT model file", gmmatmodelfile)
-
-    sparsegrmfile = InputFileHandler(sparsegrmfile).get_file_handle()
-    _log_file_info("Sparse GRM file", sparsegrmfile)
-
-    sparsegrmsampleidfile = InputFileHandler(sparsegrmsampleidfile).get_file_handle()
-    _log_file_info("Sparse GRM sample ID file", sparsegrmsampleidfile)
-
-    # --- PROCESS GROUP FILES ---
     for group_file in group_files:
         group_file = InputFileHandler(group_file, download_now=True).get_file_handle()
-        _log_file_info("Group file (raw)", group_file)
 
-        group_path = Path(str(group_file))
-        if not group_path.exists():
-            LOGGER.warning(f"[DEBUG] Group file missing: {group_path}")
-            continue
-
-        # Preview first few lines before modification
-        try:
-            LOGGER.info(f"[DEBUG] --- First 3 lines of {group_path.name} (BEFORE fix) ---")
-            with group_path.open('r') as f:
-                for _ in range(3):
-                    LOGGER.info("[DEBUG] " + next(f).strip())
-        except Exception as e:
-            LOGGER.warning(f"[DEBUG] Could not read group file before fix: {e}")
-
+        # TODO: remove this - need to fix it in collapsevariants
         # --- FIX: normalize variant IDs from ':' to '_' for BGEN matching ---
+        group_path = Path(group_file)
         tmp_path = group_path.with_suffix(group_path.suffix + ".tmp")
         with group_path.open('r') as infile, tmp_path.open('w') as outfile:
             for line in infile:
@@ -316,19 +273,8 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
                         parts[i] = parts[i].replace(':', '_')
                 outfile.write('\t'.join(parts) + '\n')
         tmp_path.replace(group_path)  # overwrite original in place
-        LOGGER.info(f"[DEBUG] Fixed variant delimiters in {group_path.name}")
-
-        # Preview first few lines after modification
-        try:
-            LOGGER.info(f"[DEBUG] --- First 3 lines of {group_path.name} (AFTER fix) ---")
-            with group_path.open('r') as f:
-                for _ in range(3):
-                    LOGGER.info("[DEBUG] " + next(f).strip())
-        except Exception as e:
-            LOGGER.warning(f"[DEBUG] Could not read group file after fix: {e}")
-
-    # --- END DEBUG ---
-
+        LOGGER.info(f"Fixed variant delimiters in {group_path.name}")
+        # --- END FIX ---
 
     # 4. Run step 2 of SAIGE
     LOGGER.info("Running SAIGE step 2")
