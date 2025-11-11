@@ -18,7 +18,7 @@ import pytest
 from burden.loader import LoadModule
 
 # Set this flag to True if you want to keep (copy) the temporary output files
-KEEP_TEMP = False
+KEEP_TEMP = True
 
 # test data directory
 test_data_dir = Path(__file__).parent / 'test_data'
