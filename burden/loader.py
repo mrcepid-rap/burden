@@ -115,7 +115,7 @@ class LoadModule(ModuleLoader):
             'saige': SAIGERunner,
             'regenie': REGENIERunner,
             'glm': GLMRunner,
-            # 'staar': STAARRunner,
+            'staar': STAARRunner,
         }
         if input_tool in module_tools:
             return module_tools[input_tool]
