@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, List
 
 import pandas as pd
 from general_utilities.bgen_utilities.genotype_matrix import generate_csr_matrix_from_bgen
@@ -10,7 +11,8 @@ from general_utilities.job_management.command_executor import build_default_comm
 from general_utilities.job_management.joblauncher_factory import joblauncher_factory
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.linear_model.proccess_model_output import process_model_outputs
-from general_utilities.linear_model.staar_model import load_staar_genetic_data, staar_genes, staar_null
+from general_utilities.linear_model.staar_model import load_staar_genetic_data, staar_genes, staar_null, \
+    STAARModelResult
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 from scipy.io import mmwrite
 
@@ -98,9 +100,7 @@ class STAARRunner(ToolRunner):
                             'bgen_sample': working_chunk['sample'].get_input_str(),
                             'variants_table': variants_table,
                             'staar_samples': staar_samples,
-                            'is_binary': self._association_pack.is_binary,
                             'chunk_file': chunk_file,
-                            'transcripts_table': transcripts_table,
                             'threads': self._association_pack.threads
                         },
                         outputs=['output_model']
@@ -110,13 +110,12 @@ class STAARRunner(ToolRunner):
         # Gather all the results
         completed_staar_chunks = []
         for result in launcher:
-            df = pd.read_csv(result['output_model'], sep='\t', index_col=0)
-            completed_staar_chunks.append(df)
-        # Combine them all
-        combined_staar = pd.concat(completed_staar_chunks, axis=0)
-        combined_staar = combined_staar.sort_values(by='start')
-        combined_staar.to_csv(f'{self._output_prefix}.genes.STAAR.stats.tsv', sep='\t', index=True)
-        self._outputs.extend(f'{self._output_prefix}.genes.STAAR.stats.tsv')
+            # Annotate STAAR outputs
+            output_path = Path(f'{self._output_prefix}.genes.STAAR.stats.tsv')
+            self._outputs.extend(process_model_outputs(input_models=result['output_model'],
+                                  output_path=output_path,
+                                  tarball_type=self._association_pack.tarball_type,
+                                  transcripts_table=self._transcripts_table))
 
         # 5. Make Manhattan plots
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
@@ -135,7 +134,7 @@ class STAARRunner(ToolRunner):
                                                      chrom_column='chrom', pos_column='start',
                                                      alt_column=None,
                                                      id_column='ENST',
-                                                     p_column='staar.O.p',
+                                                     p_column='p_val_burden',
                                                      csq_column='MASK',
                                                      maf_column='cMAC', gene_symbol_column='SYMBOL',
                                                      clumping_distance=1,
@@ -148,7 +147,7 @@ class STAARRunner(ToolRunner):
 def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: str, staar_null_model: dict,
                              bgen_file: str,
                              bgen_index: str, bgen_sample: str, variants_table: dict, staar_samples: dict,
-                             chunk_file: dict, transcripts_table: dict, threads: int) -> Path:
+                             chunk_file: dict, threads: int) -> List[STAARModelResult]:
     """
     Run the STAAR gene tests for a single tarball/chromosome chunk inside the worker environment.
 
@@ -162,7 +161,6 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     :param variants_table: Remote variants metadata table.
     :param staar_samples: Remote samples metadata table.
     :param chunk_file: Remote JSON chunk describing the subset of genes to evaluate.
-    :param transcripts_table: Remote transcripts annotation table.
     :param threads: Number of threads to use inside this worker.
 
     :return: Path pointing to the aggregated STAAR output for this chromosome.
@@ -174,7 +172,6 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     staar_samples = InputFileHandler(staar_samples).get_file_handle()
     staar_variants = InputFileHandler(variants_table).get_file_handle()
     chunk_file = InputFileHandler(chunk_file).get_file_handle()
-    transcripts_table = InputFileHandler(transcripts_table).get_file_handle()
 
     with open(chunk_file, "r") as f:
         staar_data = json.load(f)
@@ -185,7 +182,7 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     sample_path = InputFileHandler(bgen_sample).get_file_handle()
 
     # Limit concurrency per worker so that R-based jobs do not overwhelm the VM.
-    thread_utility = ThreadUtility(threads=threads)
+    thread_utility = ThreadUtility(threads=1)
 
     for gene, info in staar_data[chromosome].items():
 
@@ -231,12 +228,4 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
         staar_result = result["staar_result"]
         completed_staar_files.append(staar_result)
 
-    # Annotate STAAR output
-    transcript = pd.read_csv(transcripts_table, sep='\t', index_col=0)
-    output_model = Path(f'{chromosome}.staar_results.tsv')
-    process_model_outputs(input_models=completed_staar_files,
-                          output_path=output_model,
-                          tarball_type=TarballType.GENOMEWIDE,
-                          transcripts_table=transcript)
-
-    return output_model
+    return completed_staar_files
