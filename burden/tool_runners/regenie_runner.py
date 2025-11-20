@@ -32,8 +32,6 @@ class REGENIERunner(ToolRunner):
         # # 2. Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A REGENIE bgen thread failed',
-                                       incrementor=10,
                                        thread_factor=4)
 
         for chromosome in self._association_pack.bgen_dict:
@@ -47,8 +45,6 @@ class REGENIERunner(ToolRunner):
         # 4. Run step 2 of regenie
         self._logger.info("Running REGENIE step 2")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A REGENIE step 2 thread failed',
-                                       incrementor=10,
                                        thread_factor=1)
         for chromosome in self._association_pack.bgen_dict:
             for tarball_prefix in self._association_pack.tarball_prefixes:
