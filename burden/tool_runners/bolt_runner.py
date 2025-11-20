@@ -21,8 +21,6 @@ class BOLTRunner(ToolRunner):
         # 1. First we need to download / prep the BGEN files we want to run through BOLT
         self._logger.info("Processing BGEN files for BOLT run...")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A BOLT thread failed',
-                                       incrementor=10,
                                        thread_factor=4)
 
         # The 'poss_chromosomes.txt' has a slightly different format depending on the data-type being used, but

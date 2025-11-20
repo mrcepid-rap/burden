@@ -19,8 +19,6 @@ class SAIGERunner(ToolRunner):
         # Prep bgen files for a run:
         self._logger.info("Downloading and filtering raw bgen files")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A SAIGE bgen thread failed',
-                                       incrementor=10,
                                        thread_factor=4)
 
         for chromosome in self._association_pack.bgen_dict:
@@ -38,8 +36,6 @@ class SAIGERunner(ToolRunner):
         # 2. Run SAIGE step two WITH parallelisation by chromosome
         self._logger.info("Running SAIGE step 2...")
         thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A SAIGE thread failed',
-                                       incrementor=10,
                                        thread_factor=1)
 
         for chromosome in self._association_pack.bgen_dict:
