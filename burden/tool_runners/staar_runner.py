@@ -203,10 +203,6 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
             LOGGER.warning(f"Skipping {gene}: fewer than 2 variants ({n_variants})")
             continue
 
-        # Load the STAAR samples to get the correct sample list
-        staar_samples_df = pd.read_csv(staar_samples, sep='\t')
-        sample_filter = staar_samples_df['sampID'].tolist()  # Adjust column name as needed
-
         # generate a csr matrix from the bgen files
         matrix, summary_dict = generate_csr_matrix_from_bgen(
             bgen_path=bgen_path,
@@ -215,8 +211,7 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
             chromosome=staar_data[chromosome][gene]['chrom'],
             start=staar_data[chromosome][gene]['min'],
             end=staar_data[chromosome][gene]['max'],
-            should_collapse_matrix=False,
-            sample_filter_list=sample_filter
+            should_collapse_matrix=False
         )
 
         # export matrix to file
