@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, List
 
+import dxpy
 import pandas as pd
 from general_utilities.bgen_utilities.genotype_matrix import generate_csr_matrix_from_bgen
 from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
@@ -153,6 +154,7 @@ class STAARRunner(ToolRunner):
                 manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.STAAR.png')
 
 
+@dxpy.entry_point('multithread_staar_burden')
 def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: str, staar_null_model: dict,
                              bgen_file: str,
                              bgen_index: str, bgen_sample: str, variants_table: dict, staar_samples: dict,
