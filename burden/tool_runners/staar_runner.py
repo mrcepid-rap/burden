@@ -33,10 +33,25 @@ class STAARRunner(ToolRunner):
             self._logger.info("Running STAAR Null Model(s)...")
             thread_utility = ThreadUtility(self._association_pack.threads,
                                            thread_factor=1)
+
+            # Build BGEN-aligned covariates before calling staar_null
+            bgen_sample_path = list(self._association_pack.bgen_dict.values())[0]["sample"].get_input_str()
+            bgen_samples = pd.read_csv(bgen_sample_path, sep='\s+', header=0)
+            sample_id_col = bgen_samples.columns[0]
+            bgen_samples = bgen_samples[[sample_id_col]]
+
+            covar = pd.read_csv(self._association_pack.final_covariates, sep='\t')
+            merged = bgen_samples.set_index(sample_id_col).join(covar.set_index('FID'), how='left')
+
+            merged_path = Path("bgen_aligned_covariates.tsv")
+            merged.to_csv(merged_path, sep='\t', index=False)
+
+
+
             for phenoname in self._association_pack.pheno_names:
                 thread_utility.launch_job(function=staar_null,
                                           inputs={
-                                              'phenofile': self._association_pack.final_covariates,
+                                              'phenofile': str(merged_path),
                                               'phenotype': phenoname,
                                               'is_binary': self._association_pack.is_binary,
                                               'ignore_base': self._association_pack.ignore_base_covariates,
