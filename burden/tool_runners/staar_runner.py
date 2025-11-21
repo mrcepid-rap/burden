@@ -63,6 +63,15 @@ class STAARRunner(ToolRunner):
         for phenoname in self._association_pack.pheno_names:
             for tarball_prefix in self._association_pack.tarball_prefixes:
                 for chromosome in self._association_pack.bgen_dict:
+
+                    # check that the STAAR files exist for this tarball / chromosome
+                    samples_path = Path(f"{tarball_prefix}.{chromosome}.STAAR.samples_table.tsv")
+                    variants_path = Path(f"{tarball_prefix}.{chromosome}.STAAR.variants_table.tsv")
+                    # Skip if this chromosome was not produced for this tarball
+                    if not samples_path.exists() or not variants_path.exists():
+                        self._logger.info(f"Skipping {tarball_prefix} / {chromosome}: no STAAR files present")
+                        continue
+
                     # get the STAAR genetic data
                     staar_data = load_staar_genetic_data(
                         tarball_prefix=str(tarball_prefix),
