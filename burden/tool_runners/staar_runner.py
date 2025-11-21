@@ -34,23 +34,52 @@ class STAARRunner(ToolRunner):
             thread_utility = ThreadUtility(self._association_pack.threads,
                                            thread_factor=1)
 
-            # Build BGEN-aligned covariates before calling staar_null
-            bgen_sample = list(self._association_pack.bgen_dict.values())[0]["sample"].get_input_str()
-            bgen_sample_path_local = InputFileHandler(bgen_sample).get_file_handle()
-            bgen_samples = pd.read_csv(bgen_sample_path_local, sep='\s+', header=0)
-            sample_id_col = bgen_samples.columns[0]
-            bgen_samples = bgen_samples[[sample_id_col]]
+            first_chrom = next(iter(self._association_pack.bgen_dict))
+            sample_path = self._association_pack.bgen_dict[first_chrom]["sample"].get_file_handle()
 
-            covar = pd.read_csv(self._association_pack.final_covariates, sep='\t')
-            merged = bgen_samples.set_index(sample_id_col).join(covar.set_index('FID'), how='left')
+            # 1. Load BGEN sample
+            sample = pd.read_csv(sample_path, sep=r"\s+", header=0)
 
-            merged_path = Path("bgen_aligned_covariates.tsv")
-            merged.to_csv(merged_path, sep='\t', index=False)
+            # Drop 'sex' column BEFORE merging (prevent sex_x/sex_y)
+            sample = sample.drop(columns=["sex"], errors="ignore")
+
+            # 2. Drop the second definition row (BGEN quirk)
+            sample = sample.iloc[1:].reset_index(drop=True)
+
+            # 3. Ensure ID_2 is integer
+            sample["ID_2"] = sample["ID_2"].astype(int)
+
+            # 4. Read covariates
+            covar = pd.read_csv(self._association_pack.final_covariates, sep=' ', header=0)
+
+            # 5. Merge using ID_2 ↔ IID
+            merged = sample.merge(
+                covar,
+                how="left",
+                left_on="ID_2",
+                right_on="IID"
+            )
+
+            # 6. Drop only these (sex already removed)
+            merged = merged.drop(columns=["ID_1", "missing"], errors="ignore")
+
+            # 7. Sort by ID_2
+            merged = merged.sort_values("ID_2")
+
+            pd.set_option('display.max_columns', None)
+
+            print("=== MERGED HEAD ===")
+            print(merged.head())
+
+            # 8. Write merged covariates to file for STAAR Null
+            merged_cov_path = Path("merged_covariates_for_staar.tsv")
+            merged.to_csv(merged_cov_path, sep="\t", index=False)
+
 
             for phenoname in self._association_pack.pheno_names:
                 thread_utility.launch_job(function=staar_null,
                                           inputs={
-                                              'phenofile': str(merged_path),
+                                              'phenofile': str(merged_cov_path),
                                               'phenotype': phenoname,
                                               'is_binary': self._association_pack.is_binary,
                                               'ignore_base': self._association_pack.ignore_base_covariates,
