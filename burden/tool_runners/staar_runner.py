@@ -46,7 +46,8 @@ class STAARRunner(ToolRunner):
                                               'sparse_kinship_file': self._association_pack.sparse_grm,
                                               'sparse_kinship_samples': self._association_pack.sparse_grm_sample
                                           },
-                                          outputs=['staar_null_model']
+                                          outputs=['staar_null_model'],
+                                          instance_type="mem3_ssd3_x2"
                                           )
             thread_utility.submit_and_monitor()
         else:
