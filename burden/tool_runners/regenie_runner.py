@@ -126,28 +126,28 @@ class REGENIERunner(ToolRunner):
         launcher = joblauncher_factory()
 
         # files to include
-        samples_include = Path('SAMPLES_Include.txt')
+        samples_include = self._association_pack.inclusion_samples
         fit_out_pred = Path('fit_out_pred.list')
         fit_out_loco = Path('fit_out_1.loco')
 
         # set the exporter
         exporter = ExportFileHandler(delete_on_upload=False)
 
-        for chromosome in self._association_pack.bgen_dict:
+        for chunk in self._association_pack.bgen_dict:
 
             # make a list of all annotation files for this chromosome
-            anno_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.annotationFile.txt'))
+            anno_files = list(Path('.').glob(f'*.{chunk}.REGENIE.annotationFile.txt'))
             if not anno_files:
                 continue
 
-            # make a list of the mask files for this chromosome
-            mask_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.maskfile.txt'))
-            if not mask_files:
-                continue
-
-            # make a list of the setlist files for this chromosome
-            setlist_files = list(Path('.').glob(f'*.{chromosome}.REGENIE.setListFile.txt'))
-            if not setlist_files:
+            # Explicitly construct mask and setlist file paths from tarball_prefixes
+            mask_files = [Path(f'{prefix}.{chunk}.REGENIE.maskfile.txt') for prefix in
+                          self._association_pack.tarball_prefixes if
+                          Path(f'{prefix}.{chunk}.REGENIE.maskfile.txt').exists()]
+            setlist_files = [Path(f'{prefix}.{chunk}.REGENIE.setListFile.txt') for prefix in
+                             self._association_pack.tarball_prefixes if
+                             Path(f'{prefix}.{chunk}.REGENIE.setListFile.txt').exists()]
+            if not mask_files or not setlist_files:
                 continue
 
             # export the files to DX for each subjob
@@ -161,11 +161,11 @@ class REGENIERunner(ToolRunner):
 
             launcher.launch_job(function=run_regenie_step2,
                                 inputs={
-                                    "bgen_file": self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
-                                    "bgen_sample": self._association_pack.bgen_dict[chromosome][
+                                    "bgen_file": self._association_pack.bgen_dict[chunk]['bgen'].get_input_str(),
+                                    "bgen_sample": self._association_pack.bgen_dict[chunk][
                                         'sample'].get_input_str(),
-                                    "bgen_index": self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
-                                    "chromosome": chromosome,
+                                    "bgen_index": self._association_pack.bgen_dict[chunk]['index'].get_input_str(),
+                                    "chromosome": chunk,
                                     "tarball_prefixes": self._association_pack.tarball_prefixes,
                                     "samples_include": samples_include,
                                     "covariate_file": phenotype_file,
@@ -323,6 +323,9 @@ def run_regenie_step2(
     :return: The tarball prefix, finished chromosome, and log file
     """
 
+    # set the command executor
+    cmd_exec = build_default_command_executor()
+
     # we are now working per chunk
     # Get all the files we need
     bgen_file = InputFileHandler(bgen_file).get_file_handle()
@@ -366,7 +369,8 @@ def run_regenie_step2(
                                           "setlist_file": f'{tarball_prefix}.{chromosome}.REGENIE.setListFile.txt',
                                           "found_quantitative_covariates": found_quantitative_covariates,
                                           "found_categorical_covariates": found_categorical_covariates,
-                                          "ignore_base_covariates": ignore_base_covariates
+                                          "ignore_base_covariates": ignore_base_covariates,
+                                          "cmd_exec": cmd_exec
                                       },
                                       outputs=[
                                           "tarball_prefix",
@@ -396,7 +400,7 @@ def run_regenie_step2(
 def regenie_step_two(tarball_prefix, chromosome, bgen_file, bgen_sample, samples_include,
                      covariate_file, pheno_file, pheno_column, fit_out_pred, annotation_file,
                      mask_file, setlist_file, found_quantitative_covariates,
-                     found_categorical_covariates, is_binary, ignore_base_covariates) -> Tuple[Any, Any, Path, Path]:
+                     found_categorical_covariates, is_binary, ignore_base_covariates, cmd_exec) -> Tuple[Any, Any, Path, Path]:
     """
     Execution of REGENIE step 2 for a single chromosome
 
@@ -416,12 +420,10 @@ def regenie_step_two(tarball_prefix, chromosome, bgen_file, bgen_sample, samples
     :param found_categorical_covariates: The categorical covariates to use
     :param is_binary: Whether the phenotype is binary
     :param ignore_base_covariates: Whether to ignore base covariates
+    :param cmd_exec: CommandExecutor to use
 
     :return: The tarball prefix, chromosome, and log file
     """
-
-    # set the command executor
-    cmd_exec = build_default_command_executor()
 
     # Note – there is some issue with skato (in --vc-tests flag), so I have changed to skato-acat which works...?
     cmd = f'regenie ' \
