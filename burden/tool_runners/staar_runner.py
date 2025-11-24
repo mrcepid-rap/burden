@@ -227,6 +227,10 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     index_path = InputFileHandler(bgen_index).get_file_handle()
     sample_path = InputFileHandler(bgen_sample).get_file_handle()
 
+    # Load the STAAR samples table to get the correct sample list for filtering
+    staar_samples_df = pd.read_csv(staar_samples, sep='\t')
+    sample_filter = staar_samples_df['sampID'].tolist()
+
     # Limit concurrency per worker so that R-based jobs do not overwhelm the VM.
     thread_utility = ThreadUtility(threads=1)
 
@@ -245,7 +249,8 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
             chromosome=staar_data[chromosome][gene]['chrom'],
             start=staar_data[chromosome][gene]['min'],
             end=staar_data[chromosome][gene]['max'],
-            should_collapse_matrix=False
+            should_collapse_matrix=False,
+            sample_filter_list=sample_filter  # ADD THIS LINE
         )
 
         # export matrix to file
