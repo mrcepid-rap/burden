@@ -303,8 +303,7 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
             chromosome=staar_data[chromosome][gene]['chrom'],
             start=staar_data[chromosome][gene]['min'],
             end=staar_data[chromosome][gene]['max'],
-            should_collapse_matrix=False,
-            sample_filter_list=sample_filter  # ADD THIS LINE
+            should_collapse_matrix=False
         )
 
         # export matrix to file
