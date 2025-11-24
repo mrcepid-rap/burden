@@ -281,6 +281,9 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     index_path = InputFileHandler(bgen_index).get_file_handle()
     sample_path = InputFileHandler(bgen_sample).get_file_handle()
 
+    # Limit concurrency per worker so that R-based jobs do not overwhelm the VM.
+    thread_utility = ThreadUtility(threads=1)
+
     # Load the STAAR samples table
     staar_samples_df = pd.read_csv(staar_samples, sep='\t')
 
