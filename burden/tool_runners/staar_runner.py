@@ -87,6 +87,38 @@ class STAARRunner(ToolRunner):
         else:
             self._logger.info("STAAR null model already exists, skipping...")
 
+        # Filter STAAR samples tables to match the samples in the null model
+        self._logger.info("Filtering STAAR samples tables to match null model samples...")
+
+        # Read the samples that were used in the null model
+        merged_cov_path = Path("merged_covariates_for_staar.tsv")
+        if merged_cov_path.exists():
+            merged_samples = pd.read_csv(merged_cov_path, sep='\t')
+            null_model_samples = set(merged_samples['ID_2'].astype(str))
+
+            # Now filter each STAAR samples table
+            for tarball_prefix in self._association_pack.tarball_prefixes:
+                for chromosome in self._association_pack.bgen_dict:
+                    samples_path = Path(f"{tarball_prefix}.{chromosome}.STAAR.samples_table.tsv")
+
+                    if samples_path.exists():
+                        # Read the original STAAR samples table
+                        staar_samples_df = pd.read_csv(samples_path, sep='\t')
+                        original_count = len(staar_samples_df)
+
+                        # Filter to only keep samples in the null model
+                        staar_samples_df = staar_samples_df[
+                            staar_samples_df['sampID'].astype(str).isin(null_model_samples)
+                        ]
+                        filtered_count = len(staar_samples_df)
+
+                        # Overwrite the STAAR samples table with the filtered version
+                        staar_samples_df.to_csv(samples_path, sep='\t', index=False)
+
+                        self._logger.info(
+                            f"Filtered {samples_path.name}: {original_count} → {filtered_count} samples"
+                        )
+
         # 2. Run the actual per-gene association tests
         self._logger.info("Running STAAR masks * chromosomes...")
 
