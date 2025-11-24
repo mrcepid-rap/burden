@@ -281,24 +281,35 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     index_path = InputFileHandler(bgen_index).get_file_handle()
     sample_path = InputFileHandler(bgen_sample).get_file_handle()
 
-    # Load the STAAR samples table to get the correct sample list for filtering
+    # Load the STAAR samples table
     staar_samples_df = pd.read_csv(staar_samples, sep='\t')
-    sample_filter = staar_samples_df['sampID'].tolist()
 
-    # Limit concurrency per worker so that R-based jobs do not overwhelm the VM.
-    thread_utility = ThreadUtility(threads=1)
+    # Load the full BGEN sample file
+    bgen_samples_df = pd.read_csv(sample_path, sep=r'\s+', header=0)
+    bgen_samples_df = bgen_samples_df.iloc[1:].reset_index(drop=True)  # Skip first row (0 0 0)
 
+    # Filter the BGEN samples to only those in the STAAR samples table
+    # The STAAR samples 'row' column tells us which rows to keep
+    filtered_bgen_samples = bgen_samples_df.iloc[staar_samples_df['row'].tolist()]
+
+    # Write out a filtered sample file
+    filtered_sample_path = Path(f"filtered_{chromosome}.sample")
+    # Add back the header row
+    header_row = pd.DataFrame({'ID_1': [0], 'ID_2': [0], 'missing': [0]})
+    filtered_samples_with_header = pd.concat([header_row, filtered_bgen_samples], ignore_index=True)
+    filtered_samples_with_header.to_csv(filtered_sample_path, sep=' ', index=False, header=True)
+
+    # Now use the filtered sample file
     for gene, info in staar_data[chromosome].items():
-
         n_variants = len(info.get("vars", []))
         if n_variants < 2:
             LOGGER.warning(f"Skipping {gene}: fewer than 2 variants ({n_variants})")
             continue
 
-        # generate a csr matrix from the bgen files
+        # generate a csr matrix from the bgen files using the FILTERED sample file
         matrix, summary_dict = generate_csr_matrix_from_bgen(
             bgen_path=bgen_path,
-            sample_path=sample_path,
+            sample_path=filtered_sample_path,  # Use filtered sample file
             variant_filter_list=staar_data[chromosome][gene]['vars'],
             chromosome=staar_data[chromosome][gene]['chrom'],
             start=staar_data[chromosome][gene]['min'],
