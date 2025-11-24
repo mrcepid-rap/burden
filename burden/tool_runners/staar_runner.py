@@ -16,7 +16,7 @@ from general_utilities.linear_model.staar_model import load_staar_genetic_data, 
     STAARModelResult
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 from scipy.io import mmwrite
-
+from dataclasses import asdict
 from burden.tool_runners.tool_runner import ToolRunner
 
 
@@ -320,11 +320,12 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
         )
     thread_utility.submit_and_monitor()
 
-    # Gather the resulting futures
+    # Gather the resulting futures and convert to dictionaries
     completed_staar_files = []
     for result in thread_utility:
         # Each result is a dict with {'staar_result': STAARModelResult(...)}
         staar_result = result["staar_result"]
-        completed_staar_files.append(staar_result)
+        # Convert dataclass to dictionary using dataclasses.asdict()
+        completed_staar_files.append(asdict(staar_result))
 
     return completed_staar_files
