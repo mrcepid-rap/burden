@@ -47,7 +47,7 @@ class STAARRunner(ToolRunner):
             sample = sample.iloc[1:].reset_index(drop=True)
 
             # 3. Ensure ID_2 is integer
-            sample["ID_2"] = sample["ID_2"].astype(int)
+            # sample["ID_2"] = sample["ID_2"].astype(int)
 
             # 4. Read covariates
             covar = pd.read_csv(self._association_pack.final_covariates, sep=' ', header=0)
