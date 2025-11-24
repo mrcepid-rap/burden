@@ -302,6 +302,14 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     filtered_samples_with_header = pd.concat([header_row, filtered_bgen_samples], ignore_index=True)
     filtered_samples_with_header.to_csv(filtered_sample_path, sep=' ', index=False, header=True)
 
+    LOGGER.info(f"Created filtered sample file with {len(filtered_bgen_samples)} samples")
+    LOGGER.info(f"First 10 rows:")
+    LOGGER.info(filtered_samples_with_header.head(10))
+
+    # Verify the file was written correctly
+    test_read = pd.read_csv(filtered_sample_path, sep=r'\s+')
+    LOGGER.info(f"Re-read filtered sample file: {len(test_read)} rows (including header row)")
+
     # Now use the filtered sample file
     for gene, info in staar_data[chromosome].items():
         n_variants = len(info.get("vars", []))
@@ -319,6 +327,8 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
             end=staar_data[chromosome][gene]['max'],
             should_collapse_matrix=False
         )
+
+        LOGGER.info(f"Matrix for {gene} has shape: {matrix.shape}")
 
         # export matrix to file
         mmwrite(f"{tarball_prefix}.{chromosome}.{gene}.STAAR.mtx", matrix)
