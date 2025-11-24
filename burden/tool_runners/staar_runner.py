@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Dict
 
 import dxpy
 import pandas as pd
@@ -247,7 +247,7 @@ class STAARRunner(ToolRunner):
 def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: str, staar_null_model: dict,
                              bgen_file: str,
                              bgen_index: str, bgen_sample: str, variants_table: dict, staar_samples: dict,
-                             chunk_file: dict, threads: int) -> List[STAARModelResult]:
+                             chunk_file: dict, threads: int) -> Dict[str, List[Any]]:
     """
     Run the STAAR gene tests for a single tarball/chromosome chunk inside the worker environment.
 
@@ -328,4 +328,4 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
         # Convert dataclass to dictionary using dataclasses.asdict()
         completed_staar_files.append(asdict(staar_result))
 
-    return completed_staar_files
+    return {'output_model': completed_staar_files}
