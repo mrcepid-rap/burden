@@ -37,22 +37,13 @@ class STAARRunner(ToolRunner):
             first_chrom = next(iter(self._association_pack.bgen_dict))
             sample_path = self._association_pack.bgen_dict[first_chrom]["sample"].get_file_handle()
 
-            # 1. Load BGEN sample
-            sample = pd.read_csv(sample_path, sep=r"\s+", header=0)
-
-            # Drop 'sex' column BEFORE merging (prevent sex_x/sex_y)
+            # Ensure both columns are strings for merging
+            sample = pd.read_csv(sample_path, sep=r"\s+", header=0, dtype={'ID_2': str})
             sample = sample.drop(columns=["sex"], errors="ignore")
-
-            # 2. Drop the second definition row (BGEN quirk)
             sample = sample.iloc[1:].reset_index(drop=True)
 
-            # 3. Ensure ID_2 is integer
-            # sample["ID_2"] = sample["ID_2"].astype(int)
+            covar = pd.read_csv(self._association_pack.final_covariates, sep=' ', header=0, dtype={'IID': str})
 
-            # 4. Read covariates
-            covar = pd.read_csv(self._association_pack.final_covariates, sep=' ', header=0)
-
-            # 5. Merge using ID_2 ↔ IID
             merged = sample.merge(
                 covar,
                 how="left",
