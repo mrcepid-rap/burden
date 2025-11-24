@@ -102,8 +102,7 @@ class STAARRunner(ToolRunner):
                                               'sparse_kinship_file': self._association_pack.sparse_grm,
                                               'sparse_kinship_samples': self._association_pack.sparse_grm_sample
                                           },
-                                          outputs=['staar_null_model'],
-                                          instance_type="mem3_ssd3_x2"
+                                          outputs=['staar_null_model']
                                           )
             thread_utility.submit_and_monitor()
         else:
@@ -202,7 +201,8 @@ class STAARRunner(ToolRunner):
                             'chunk_file': chunk_file,
                             'threads': self._association_pack.threads
                         },
-                        outputs=['output_model']
+                        outputs=['output_model'],
+                        instance_type="mem3_ssd3_x2"
                     )
         launcher.submit_and_monitor()
 
