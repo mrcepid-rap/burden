@@ -64,6 +64,28 @@ class STAARRunner(ToolRunner):
 
             # 8. Write merged covariates to file for STAAR Null
             merged_cov_path = Path("merged_covariates_for_staar.tsv")
+
+            # Remove rows with missing phenotype or any covariates that will be used in the model
+            # This ensures the sample list matches what R will actually use
+            for phenoname in self._association_pack.pheno_names:
+                if phenoname in merged.columns:
+                    merged = merged.dropna(subset=[phenoname])
+
+            # Also drop samples with missing covariates that will be used
+            required_cols = ['age', 'age_squared', 'batch']
+            if self._association_pack.sex == 2:
+                required_cols.append('sex')
+            for i in range(1, 11):
+                required_cols.append(f'PC{i}')
+            required_cols.extend(self._association_pack.found_quantitative_covariates)
+            required_cols.extend(self._association_pack.found_categorical_covariates)
+
+            # Only keep columns that exist
+            required_cols = [col for col in required_cols if col in merged.columns]
+            merged = merged.dropna(subset=required_cols)
+
+            self._logger.info(f"After removing samples with missing data: {len(merged)} samples remain")
+
             merged.to_csv(merged_cov_path, sep="\t", index=False)
 
 
