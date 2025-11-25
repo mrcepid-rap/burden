@@ -202,7 +202,7 @@ class STAARRunner(ToolRunner):
                             'threads': self._association_pack.threads
                         },
                         outputs=['output_model'],
-                        instance_type="mem3_ssd3_x2"
+                        instance_type="mem3_ssd3_x4"
                     )
         launcher.submit_and_monitor()
 
