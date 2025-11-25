@@ -202,8 +202,7 @@ class STAARRunner(ToolRunner):
                             'chunk_file': chunk_file,
                             'threads': self._association_pack.threads
                         },
-                        outputs=['output_model'],
-                        instance_type="mem3_ssd3_x8"
+                        outputs=['output_model']
                     )
         launcher.submit_and_monitor()
 
