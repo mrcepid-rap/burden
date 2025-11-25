@@ -203,7 +203,7 @@ class STAARRunner(ToolRunner):
                             'chunk_file': chunk_file,
                             'threads': self._association_pack.threads,
                             'transcripts_table': transcripts_table,
-                            'tarball_type': self._association_pack.tarball_type,
+                            'tarball_type': str(self._association_pack.tarball_type),
                         },
                         outputs=['output_model']
                     )
