@@ -18,6 +18,7 @@ from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 from scipy.io import mmwrite
 from dataclasses import asdict
 from burden.tool_runners.tool_runner import ToolRunner
+import gc
 
 
 class STAARRunner(ToolRunner):
@@ -202,7 +203,7 @@ class STAARRunner(ToolRunner):
                             'threads': self._association_pack.threads
                         },
                         outputs=['output_model'],
-                        instance_type="mem3_ssd3_x4"
+                        instance_type="mem3_ssd3_x8"
                     )
         launcher.submit_and_monitor()
 
@@ -242,12 +243,11 @@ class STAARRunner(ToolRunner):
 
                 manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.STAAR.png')
 
-
 @dxpy.entry_point('multithread_staar_burden')
 def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: str, staar_null_model: dict,
                              bgen_file: str,
                              bgen_index: str, bgen_sample: str, variants_table: dict, staar_samples: dict,
-                             chunk_file: dict, threads: int) -> Dict[str, List[Any]]:
+                             chunk_file: dict, threads: int) -> Dict[str, List[Dict[str, Any]]]:
     """
     Run the STAAR gene tests for a single tarball/chromosome chunk inside the worker environment.
 
@@ -263,9 +263,8 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     :param chunk_file: Remote JSON chunk describing the subset of genes to evaluate.
     :param threads: Number of threads to use inside this worker.
 
-    :return: Path pointing to the aggregated STAAR output for this chromosome.
+    :return: Dictionary containing list of STAAR results.
     """
-
     # load our VM environment
     cmd_executor = build_default_command_executor()
     null_model = InputFileHandler(staar_null_model).get_file_handle()
@@ -302,7 +301,13 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
         )
 
         # export matrix to file
-        mmwrite(f"{tarball_prefix}.{chromosome}.{gene}.STAAR.mtx", matrix)
+        matrix_file = f"{tarball_prefix}.{chromosome}.{gene}.STAAR.mtx"
+        mmwrite(matrix_file, matrix)
+
+        # Clean up matrix from memory immediately
+        del matrix
+        del summary_dict
+        gc.collect()
 
         thread_utility.launch_job(
             function=staar_genes,
@@ -311,21 +316,26 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
                 'pheno_name': phenoname,
                 'gene': gene,
                 'mask_name': tarball_prefix,
-                'staar_matrix': f"{tarball_prefix}.{chromosome}.{gene}.STAAR.mtx",
+                'staar_matrix': matrix_file,
                 'staar_samples': staar_samples,
                 'staar_variants': staar_variants,
                 'out_dir': Path('.'),
             },
             outputs=['staar_result']
         )
+
     thread_utility.submit_and_monitor()
 
-    # Gather the resulting futures and convert to dictionaries
+    # Collect results without keeping them all in memory at once
     completed_staar_files = []
     for result in thread_utility:
-        # Each result is a dict with {'staar_result': STAARModelResult(...)}
         staar_result = result["staar_result"]
-        # Convert dataclass to dictionary using dataclasses.asdict()
+        # Convert to dict and append
         completed_staar_files.append(asdict(staar_result))
+
+        # Clean up after processing each result
+        del result
+        del staar_result
+        gc.collect()
 
     return {'output_model': completed_staar_files}
