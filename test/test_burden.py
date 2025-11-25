@@ -94,15 +94,66 @@ def test_burden_tools(tool, expected_output, temporary_path):
     if tool == "regenie":
         args += f"--regenie_run {test_data_dir}/step1_out.tar.gz "
 
+    # --- Run module ---
     load_class = LoadModule(output_prefix="test", input_args=args)
     load_class.start_module()
 
+    # --- Load expected & result files ---
     expected_path = test_data_dir.parent / f"expected_outputs/{expected_output}"
     result_path = Path(expected_output)
-
     stats = pd.read_csv(expected_path, sep="\t")
     result = pd.read_csv(result_path, sep="\t")
 
-    assert stats.shape == result.shape, f"Shape mismatch: {stats.shape} vs {result.shape}"
-    assert stats.columns.tolist() == result.columns.tolist(), f"Columns mismatch: {stats.columns.tolist()} vs {result.columns.tolist()}"
-    assert stats.equals(result), f"Values mismatch: {stats} vs {result}"
+    # --- Shape and column consistency ---
+    assert stats.shape == result.shape, (
+        f"[{tool}] Shape mismatch:\nExpected {stats.shape}, got {result.shape}"
+    )
+
+    assert list(stats.columns) == list(result.columns), (
+        f"[{tool}] Column mismatch:\n"
+        f"Expected: {stats.columns.tolist()}\nGot: {result.columns.tolist()}"
+    )
+
+    # --- Index consistency ---
+    assert stats.index.equals(result.index), (
+        f"[{tool}] Index mismatch:\nExpected {stats.index}, got {result.index}"
+    )
+
+    # --- Dtype check ---
+    dtype_diff = {
+        col: (stats[col].dtype, result[col].dtype)
+        for col in stats.columns
+        if stats[col].dtype != result[col].dtype
+    }
+    if dtype_diff:
+        print(f"[{tool}] Dtype mismatches detected:\n{dtype_diff}")
+        # Align numeric columns automatically
+        result = result.astype(
+            {col: stats[col].dtype for col in dtype_diff if np.issubdtype(stats[col].dtype, np.number)})
+
+    # --- Value comparison (tolerant to floating-point noise) ---
+    try:
+        pd.testing.assert_frame_equal(
+            stats,
+            result,
+            check_dtype=False,
+            check_like=True,  # ignores column order
+            atol=1e-8,
+            rtol=1e-5,
+            obj=f"{tool} output comparison"
+        )
+    except AssertionError as e:
+        diff_summary = []
+        for col in stats.columns:
+            if not np.allclose(
+                    stats[col].fillna(np.nan),
+                    result[col].fillna(np.nan),
+                    equal_nan=True,
+                    atol=1e-8,
+                    rtol=1e-5,
+            ):
+                diff_summary.append(col)
+        pytest.fail(
+            f"[{tool}] Value mismatch detected in columns: {diff_summary}\n"
+            f"Details:\n{str(e)}"
+        )

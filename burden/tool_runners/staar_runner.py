@@ -4,6 +4,7 @@ from typing import Any, List, Dict
 
 import dxpy
 import pandas as pd
+from general_utilities.association_resources import bgzip_and_tabix
 from general_utilities.bgen_utilities.genotype_matrix import generate_csr_matrix_from_bgen
 from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
@@ -200,7 +201,9 @@ class STAARRunner(ToolRunner):
                             'variants_table': variants_table,
                             'staar_samples': staar_samples,
                             'chunk_file': chunk_file,
-                            'threads': self._association_pack.threads
+                            'threads': self._association_pack.threads,
+                            'transcripts_table': transcripts_table,
+                            'tarball_type': self._association_pack.tarball_type,
                         },
                         outputs=['output_model']
                     )
@@ -209,12 +212,15 @@ class STAARRunner(ToolRunner):
         # Gather all the results
         completed_staar_chunks = []
         for result in launcher:
-            # Annotate STAAR outputs
-            output_path = Path(f'{self._output_prefix}.genes.STAAR.stats.tsv')
-            self._outputs.extend(process_model_outputs(input_models=result['output_model'],
-                                  output_path=output_path,
-                                  tarball_type=self._association_pack.tarball_type,
-                                  transcripts_table=self._transcripts_table))
+            df = pd.read_csv(result['output_model'], sep='\t', index_col=0)
+            completed_staar_chunks.append(df)
+
+        if completed_staar_chunks:
+            combined_staar = pd.concat(completed_staar_chunks, axis=0).sort_values(by='start')
+            combined_staar.to_csv(f'{self._output_prefix}.genes.STAAR.stats.tsv', sep='\t', index=True)
+            output_tsv = Path(f"{self._output_prefix}.genes.STAAR.stats.tsv")
+            outputs = bgzip_and_tabix(output_tsv, skip_row=1, sequence_row=2, begin_row=3, end_row=4, force=True)
+            self._outputs.extend(outputs)
 
         # 5. Make Manhattan plots
         plot_dir = Path(f'{self._output_prefix}_plots/')  # Path to store plots
@@ -246,7 +252,7 @@ class STAARRunner(ToolRunner):
 def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: str, staar_null_model: dict,
                              bgen_file: str,
                              bgen_index: str, bgen_sample: str, variants_table: dict, staar_samples: dict,
-                             chunk_file: dict, threads: int) -> Dict[str, List[Dict[str, Any]]]:
+                             chunk_file: dict, threads: int, transcripts_table, tarball_type) -> Path:
     """
     Run the STAAR gene tests for a single tarball/chromosome chunk inside the worker environment.
 
@@ -261,6 +267,8 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     :param staar_samples: Remote samples metadata table.
     :param chunk_file: Remote JSON chunk describing the subset of genes to evaluate.
     :param threads: Number of threads to use inside this worker.
+    :param transcripts_table: Remote transcripts metadata table.
+    :param tarball_type: Type of tarball being processed.
 
     :return: Dictionary containing list of STAAR results.
     """
@@ -270,6 +278,8 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     staar_samples = InputFileHandler(staar_samples).get_file_handle()
     staar_variants = InputFileHandler(variants_table).get_file_handle()
     chunk_file = InputFileHandler(chunk_file).get_file_handle()
+    transcripts_table = InputFileHandler(transcripts_table).get_file_handle()
+
 
     with open(chunk_file, "r") as f:
         staar_data = json.load(f)
@@ -325,16 +335,19 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
 
     thread_utility.submit_and_monitor()
 
-    # Collect results without keeping them all in memory at once
     completed_staar_files = []
+    # And gather the resulting futures
     for result in thread_utility:
+        # Each result is a dict with {'staar_result': STAARModelResult(...)}
         staar_result = result["staar_result"]
-        # Convert to dict and append
-        completed_staar_files.append(asdict(staar_result))
+        completed_staar_files.append(staar_result)
 
-        # Clean up after processing each result
-        del result
-        del staar_result
-        gc.collect()
+    # Annotate STAAR output
+    transcript = pd.read_csv(transcripts_table, sep='\t', index_col=0)
+    output_model = Path(f'{chromosome}.staar_results.tsv')
+    process_model_outputs(input_models=completed_staar_files,
+                          output_path=output_model,
+                          tarball_type=tarball_type,
+                          transcripts_table=transcript)
 
-    return {'output_model': completed_staar_files}
+    return output_model
