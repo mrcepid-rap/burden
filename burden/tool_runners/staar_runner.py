@@ -252,7 +252,7 @@ class STAARRunner(ToolRunner):
 def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: str, staar_null_model: dict,
                              bgen_file: str,
                              bgen_index: str, bgen_sample: str, variants_table: dict, staar_samples: dict,
-                             chunk_file: dict, threads: int, transcripts_table, tarball_type) -> Path:
+                             chunk_file: dict, threads: int, transcripts_table, tarball_type) -> Dict[str, str]:
     """
     Run the STAAR gene tests for a single tarball/chromosome chunk inside the worker environment.
 
@@ -350,4 +350,4 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
                           tarball_type=tarball_type,
                           transcripts_table=transcript)
 
-    return output_model
+    return {"output_model": str(output_model)}
