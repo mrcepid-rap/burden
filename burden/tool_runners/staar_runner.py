@@ -232,6 +232,34 @@ class STAARRunner(ToolRunner):
             self._logger.info(f"Combined STAAR shape: {combined_staar.shape}")
             self._logger.info(f"Combined STAAR head:\n{combined_staar.head()}")
 
+            # NEW: Check for missing data
+            self._logger.info(f"\n=== MISSING DATA SUMMARY ===")
+            self._logger.info(f"Rows with missing chrom: {combined_staar['chrom'].isna().sum()}")
+            self._logger.info(f"Rows with missing start: {combined_staar['start'].isna().sum()}")
+            self._logger.info(f"Rows with missing end: {combined_staar['end'].isna().sum()}")
+            self._logger.info(f"Rows with missing SYMBOL: {combined_staar['SYMBOL'].isna().sum()}")
+
+            # NEW: Show examples of rows with missing coordinates
+            if combined_staar['chrom'].isna().any():
+                self._logger.info(f"\n=== EXAMPLES OF ROWS WITH MISSING COORDINATES ===")
+                missing_rows = combined_staar[combined_staar['chrom'].isna()]
+                self._logger.info(f"First 5 genes missing coordinates:")
+                self._logger.info(f"{missing_rows.head().to_string()}")
+
+            # NEW: Print the actual header as it will appear in the file
+            self._logger.info(f"\n=== FILE HEADER (first line of TSV) ===")
+            self._logger.info(f"Index name: {combined_staar.index.name}")
+            header_columns = [combined_staar.index.name] + combined_staar.columns.tolist()
+            self._logger.info(f"Columns (as they'll be written): {header_columns}")
+            self._logger.info(f"Column count: {len(header_columns)}")
+
+            # Count the position of chrom, start, end
+            if 'chrom' in combined_staar.columns:
+                chrom_pos = header_columns.index('chrom')
+                start_pos = header_columns.index('start')
+                end_pos = header_columns.index('end')
+                self._logger.info(f"Column positions (1-indexed): chrom={chrom_pos}, start={start_pos}, end={end_pos}")
+
             # Sort by start if it exists, otherwise just use index
             if 'start' in combined_staar.columns:
                 combined_staar = combined_staar.sort_values(by='start')
@@ -245,7 +273,7 @@ class STAARRunner(ToolRunner):
 
             combined_staar.to_csv(f'{self._output_prefix}.genes.STAAR.stats.tsv', sep='\t', index=True)
             output_tsv = Path(f"{self._output_prefix}.genes.STAAR.stats.tsv")
-            outputs = bgzip_and_tabix(output_tsv, skip_row=1, sequence_row=2, begin_row=3, end_row=4, force=True)
+            outputs = bgzip_and_tabix(output_tsv, skip_row=1, sequence_row=14, begin_row=15, end_row=16, force=True)
             self._outputs.extend(outputs)
 
         # 5. Make Manhattan plots
@@ -281,38 +309,63 @@ class STAARRunner(ToolRunner):
         staar_df = pd.read_csv(result_file, sep='\t', index_col=0)
         self._logger.info(f"STAAR results shape: {staar_df.shape}")
         self._logger.info(f"STAAR results index name: {staar_df.index.name}")
-        self._logger.info(f"STAAR results first 5 indices: {staar_df.index[:5].tolist()}")
 
         # Read annotation file to get chromosome and position info
         annotations = pd.read_csv(annotation_file, sep='\t')
         self._logger.info(f"Annotations shape: {annotations.shape}")
-        self._logger.info(f"Annotations columns: {annotations.columns.tolist()}")
-        self._logger.info(f"Annotations head:\n{annotations.head()}")
+
+        # Check for version numbers in transcript IDs
+        staar_has_versions = any('.' in idx for idx in staar_df.index[:10])
+        annot_has_versions = any('.' in enst for enst in annotations['ENST'].head(10))
+        self._logger.info(f"STAAR transcript IDs have version numbers: {staar_has_versions}")
+        self._logger.info(f"Annotation transcript IDs have version numbers: {annot_has_versions}")
+
+        # If one has versions and the other doesn't, strip versions
+        if staar_has_versions and not annot_has_versions:
+            self._logger.info("Stripping version numbers from STAAR transcript IDs")
+            staar_df.index = staar_df.index.str.split('.').str[0]
+        elif annot_has_versions and not staar_has_versions:
+            self._logger.info("Stripping version numbers from annotation transcript IDs")
+            annotations['ENST'] = annotations['ENST'].str.split('.').str[0]
 
         # Create a mapping from transcript ID to chrom/start/end
-        # Use 'ENST' column which contains the transcript IDs
         gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL']].copy()
         self._logger.info(f"Gene info shape after indexing: {gene_info.shape}")
-        self._logger.info(f"Gene info first 5 indices: {gene_info.index[:5].tolist()}")
+
+        # Check overlap before joining
+        staar_transcripts = set(staar_df.index)
+        annot_transcripts = set(gene_info.index)
+        overlap = staar_transcripts & annot_transcripts
+        missing = staar_transcripts - annot_transcripts
+
+        self._logger.info(f"Transcripts in STAAR: {len(staar_transcripts)}")
+        self._logger.info(f"Transcripts in annotations: {len(annot_transcripts)}")
+        self._logger.info(
+            f"Overlapping transcripts: {len(overlap)} ({100 * len(overlap) / len(staar_transcripts):.1f}%)")
+        if missing:
+            self._logger.warning(f"Transcripts in STAAR but not in annotations: {len(missing)}")
+            self._logger.warning(f"Examples: {list(missing)[:10]}")
 
         # Join with STAAR results
         staar_with_coords = staar_df.join(gene_info, how='left')
-        self._logger.info(f"After join shape: {staar_with_coords.shape}")
-        self._logger.info(f"After join columns: {staar_with_coords.columns.tolist()}")
 
         # Check how many rows got coordinates
         missing_coords = staar_with_coords['chrom'].isna().sum()
         if missing_coords > 0:
             self._logger.warning(
                 f"{missing_coords} out of {len(staar_with_coords)} genes missing chromosome coordinates")
-            self._logger.warning(
-                f"Example missing genes: {staar_with_coords[staar_with_coords['chrom'].isna()].index[:5].tolist()}")
 
-        # Ensure we have the required columns for Manhattan plot
-        if 'chrom' not in staar_with_coords.columns:
-            self._logger.error("Missing 'chrom' column after joining with annotations")
-            self._logger.info(f"Available columns after join: {staar_with_coords.columns.tolist()}")
-            raise ValueError("Cannot create Manhattan plot without chromosome information")
+            # REMOVE genes without coordinates
+            self._logger.warning(f"Removing {missing_coords} genes without coordinates")
+            staar_with_coords = staar_with_coords.dropna(subset=['chrom', 'start', 'end'])
+            self._logger.info(f"After removing genes without coordinates: {len(staar_with_coords)} genes remain")
+
+        if len(staar_with_coords) == 0:
+            raise ValueError("No genes remaining after filtering for coordinate information")
+
+        # Convert position columns to integers
+        staar_with_coords['start'] = staar_with_coords['start'].astype(int)
+        staar_with_coords['end'] = staar_with_coords['end'].astype(int)
 
         # Sort by chromosome and position
         staar_with_coords = staar_with_coords.sort_values(['chrom', 'start'])
