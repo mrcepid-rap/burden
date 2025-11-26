@@ -212,7 +212,9 @@ class STAARRunner(ToolRunner):
         # Gather all the results
         completed_staar_chunks = []
         for result in launcher:
-            df = pd.read_csv(result['output_model'], sep='\t', index_col=0)
+            # Download the file
+            result_file = InputFileHandler(result['output_model']).get_file_handle()
+            df = pd.read_csv(result_file, sep='\t', index_col=0)
             completed_staar_chunks.append(df)
 
         if completed_staar_chunks:
@@ -350,4 +352,8 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
                           tarball_type=tarball_type,
                           transcripts_table=transcript)
 
-    return {"output_model": str(output_model)}
+    # Upload the file and return a DNAnexus file link
+    exporter = ExportFileHandler()
+    uploaded_file = exporter.export_files(output_model)
+
+    return {"output_model": uploaded_file}
