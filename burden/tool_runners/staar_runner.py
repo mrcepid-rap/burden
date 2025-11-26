@@ -215,10 +215,34 @@ class STAARRunner(ToolRunner):
             # Download the file
             result_file = InputFileHandler(result['output_model']).get_file_handle()
             df = pd.read_csv(result_file, sep='\t', index_col=0)
+
+            # Debug: print columns for first chunk
+            if len(completed_staar_chunks) == 0:
+                self._logger.info(f"First chunk columns: {df.columns.tolist()}")
+                self._logger.info(f"First chunk shape: {df.shape}")
+                self._logger.info(f"First chunk head:\n{df.head()}")
+
             completed_staar_chunks.append(df)
 
         if completed_staar_chunks:
-            combined_staar = pd.concat(completed_staar_chunks, axis=0).sort_values(by='start')
+            combined_staar = pd.concat(completed_staar_chunks, axis=0)
+
+            # Debug: print what columns we have in combined dataframe
+            self._logger.info(f"Combined STAAR columns: {combined_staar.columns.tolist()}")
+            self._logger.info(f"Combined STAAR shape: {combined_staar.shape}")
+            self._logger.info(f"Combined STAAR head:\n{combined_staar.head()}")
+
+            # Sort by start if it exists, otherwise just use index
+            if 'start' in combined_staar.columns:
+                combined_staar = combined_staar.sort_values(by='start')
+                self._logger.info("Sorted by 'start' column")
+            elif 'POS' in combined_staar.columns:
+                combined_staar = combined_staar.sort_values(by='POS')
+                self._logger.info("Sorted by 'POS' column")
+            else:
+                combined_staar = combined_staar.sort_index()
+                self._logger.info("Sorted by index (no position column found)")
+
             combined_staar.to_csv(f'{self._output_prefix}.genes.STAAR.stats.tsv', sep='\t', index=True)
             output_tsv = Path(f"{self._output_prefix}.genes.STAAR.stats.tsv")
             outputs = bgzip_and_tabix(output_tsv, skip_row=1, sequence_row=2, begin_row=3, end_row=4, force=True)
