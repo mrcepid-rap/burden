@@ -290,13 +290,8 @@ class STAARRunner(ToolRunner):
         self._logger.info(f"Annotations head:\n{annotations.head()}")
 
         # Create a mapping from transcript ID to chrom/start/end
-        # Assuming annotation file has columns: transcript_id, chrom, start, end
-        if 'transcript_id' not in annotations.columns:
-            self._logger.error(f"'transcript_id' column not found in annotations!")
-            self._logger.error(f"Available columns: {annotations.columns.tolist()}")
-            raise ValueError("Annotation file must have 'transcript_id' column")
-
-        gene_info = annotations.set_index('transcript_id')[['chrom', 'start', 'end']].copy()
+        # Use 'ENST' column which contains the transcript IDs
+        gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL']].copy()
         self._logger.info(f"Gene info shape after indexing: {gene_info.shape}")
         self._logger.info(f"Gene info first 5 indices: {gene_info.index[:5].tolist()}")
 
@@ -316,7 +311,7 @@ class STAARRunner(ToolRunner):
         # Ensure we have the required columns for Manhattan plot
         if 'chrom' not in staar_with_coords.columns:
             self._logger.error("Missing 'chrom' column after joining with annotations")
-            self._logger.info(f"Available annotation columns: {annotations.columns.tolist()}")
+            self._logger.info(f"Available columns after join: {staar_with_coords.columns.tolist()}")
             raise ValueError("Cannot create Manhattan plot without chromosome information")
 
         # Sort by chromosome and position
