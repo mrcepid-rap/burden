@@ -225,7 +225,6 @@ class STAARRunner(ToolRunner):
 
         if completed_staar_chunks:
             combined_staar = pd.concat(completed_staar_chunks, axis=0)
-            combined_staar = combined_staar.sort_values(by=['chrom', 'start'])
 
             # Debug: print what columns we have in combined dataframe
             self._logger.info(f"Combined STAAR columns: {combined_staar.columns.tolist()}")
@@ -258,18 +257,15 @@ class STAARRunner(ToolRunner):
                 chrom_pos = header_columns.index('chrom')
                 start_pos = header_columns.index('start')
                 end_pos = header_columns.index('end')
-                self._logger.info(f"Column positions (1-indexed): chrom={chrom_pos}, start={start_pos}, end={end_pos}")
+                self._logger.info(
+                    f"Column positions (1-indexed): chrom={chrom_pos + 1}, start={start_pos + 1}, end={end_pos + 1}")
 
-            # Sort by start if it exists, otherwise just use index
-            if 'start' in combined_staar.columns:
-                combined_staar = combined_staar.sort_values(by='start')
-                self._logger.info("Sorted by 'start' column")
-            elif 'POS' in combined_staar.columns:
-                combined_staar = combined_staar.sort_values(by='POS')
-                self._logger.info("Sorted by 'POS' column")
-            else:
-                combined_staar = combined_staar.sort_index()
-                self._logger.info("Sorted by index (no position column found)")
+            # REPLACE THE OLD SORTING CODE WITH THIS:
+            # Convert chrom to categorical with proper order for sorting
+            chrom_order = [str(i) for i in range(1, 23)] + ['X', 'Y', 'MT']
+            combined_staar['chrom'] = pd.Categorical(combined_staar['chrom'], categories=chrom_order, ordered=True)
+            combined_staar = combined_staar.sort_values(by=['chrom', 'start'])
+            self._logger.info("Sorted by chromosome (categorical order) then start position")
 
             combined_staar.to_csv(f'{self._output_prefix}.genes.STAAR.stats.tsv', sep='\t', index=True)
             output_tsv = Path(f"{self._output_prefix}.genes.STAAR.stats.tsv")
@@ -329,7 +325,7 @@ class STAARRunner(ToolRunner):
             annotations['ENST'] = annotations['ENST'].str.split('.').str[0]
 
         # Create a mapping from transcript ID to chrom/start/end
-        gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL']].copy()
+        gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL', 'manh.pos']].copy()
         self._logger.info(f"Gene info shape after indexing: {gene_info.shape}")
 
         # Check overlap before joining
