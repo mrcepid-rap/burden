@@ -214,18 +214,18 @@ class STAARRunner(ToolRunner):
         for result in launcher:
             # Download the file
             result_file = InputFileHandler(result['output_model']).get_file_handle()
-            df = pd.read_csv(result_file, sep='\t', index_col=0)
 
-            # Debug: print columns for first chunk
-            if len(completed_staar_chunks) == 0:
-                self._logger.info(f"First chunk columns: {df.columns.tolist()}")
-                self._logger.info(f"First chunk shape: {df.shape}")
-                self._logger.info(f"First chunk head:\n{df.head()}")
+            # Process with annotations
+            processed_df = self._process_association_results(
+                result_file=result_file,
+                annotation_file=Path(self._association_pack.transcript_index)
+            )
 
-            completed_staar_chunks.append(df)
+            completed_staar_chunks.append(processed_df)
 
         if completed_staar_chunks:
             combined_staar = pd.concat(completed_staar_chunks, axis=0)
+            combined_staar = combined_staar.sort_values(by=['chrom', 'start'])
 
             # Debug: print what columns we have in combined dataframe
             self._logger.info(f"Combined STAAR columns: {combined_staar.columns.tolist()}")
@@ -273,6 +273,56 @@ class STAARRunner(ToolRunner):
                                                      sig_threshold=1E-6)
 
                 manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.STAAR.png')
+
+    def _process_association_results(self, result_file: Path, annotation_file: Path) -> pd.DataFrame:
+        """Process STAAR results and add gene annotations"""
+
+        # Read STAAR results
+        staar_df = pd.read_csv(result_file, sep='\t', index_col=0)
+        self._logger.info(f"STAAR results shape: {staar_df.shape}")
+        self._logger.info(f"STAAR results index name: {staar_df.index.name}")
+        self._logger.info(f"STAAR results first 5 indices: {staar_df.index[:5].tolist()}")
+
+        # Read annotation file to get chromosome and position info
+        annotations = pd.read_csv(annotation_file, sep='\t')
+        self._logger.info(f"Annotations shape: {annotations.shape}")
+        self._logger.info(f"Annotations columns: {annotations.columns.tolist()}")
+        self._logger.info(f"Annotations head:\n{annotations.head()}")
+
+        # Create a mapping from transcript ID to chrom/start/end
+        # Assuming annotation file has columns: transcript_id, chrom, start, end
+        if 'transcript_id' not in annotations.columns:
+            self._logger.error(f"'transcript_id' column not found in annotations!")
+            self._logger.error(f"Available columns: {annotations.columns.tolist()}")
+            raise ValueError("Annotation file must have 'transcript_id' column")
+
+        gene_info = annotations.set_index('transcript_id')[['chrom', 'start', 'end']].copy()
+        self._logger.info(f"Gene info shape after indexing: {gene_info.shape}")
+        self._logger.info(f"Gene info first 5 indices: {gene_info.index[:5].tolist()}")
+
+        # Join with STAAR results
+        staar_with_coords = staar_df.join(gene_info, how='left')
+        self._logger.info(f"After join shape: {staar_with_coords.shape}")
+        self._logger.info(f"After join columns: {staar_with_coords.columns.tolist()}")
+
+        # Check how many rows got coordinates
+        missing_coords = staar_with_coords['chrom'].isna().sum()
+        if missing_coords > 0:
+            self._logger.warning(
+                f"{missing_coords} out of {len(staar_with_coords)} genes missing chromosome coordinates")
+            self._logger.warning(
+                f"Example missing genes: {staar_with_coords[staar_with_coords['chrom'].isna()].index[:5].tolist()}")
+
+        # Ensure we have the required columns for Manhattan plot
+        if 'chrom' not in staar_with_coords.columns:
+            self._logger.error("Missing 'chrom' column after joining with annotations")
+            self._logger.info(f"Available annotation columns: {annotations.columns.tolist()}")
+            raise ValueError("Cannot create Manhattan plot without chromosome information")
+
+        # Sort by chromosome and position
+        staar_with_coords = staar_with_coords.sort_values(['chrom', 'start'])
+
+        return staar_with_coords
 
 @dxpy.entry_point('multithread_staar_burden')
 def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: str, staar_null_model: dict,
