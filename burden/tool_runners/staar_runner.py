@@ -26,78 +26,82 @@ class STAARRunner(ToolRunner):
     def run_tool(self) -> None:
         """Execute the STAAR pipeline across phenotypes, tarball masks, and chromosomes."""
 
-        if not Path('phenotype.STAAR_null.rds').exists():
-            self._logger.info("Running STAAR null model(s)...")
-            thread_utility = ThreadUtility(self._association_pack.threads,
-                                           thread_factor=1)
+        self._logger.info("Running STAAR null model(s)...")
+        thread_utility = ThreadUtility(self._association_pack.threads,
+                                       thread_factor=1)
 
-            first_chrom = next(iter(self._association_pack.bgen_dict))
-            sample_path = self._association_pack.bgen_dict[first_chrom]["sample"].get_file_handle()
+        first_chrom = next(iter(self._association_pack.bgen_dict))
+        sample_path = self._association_pack.bgen_dict[first_chrom]["sample"].get_file_handle()
 
-            # Ensure both columns are strings for merging
-            sample = pd.read_csv(sample_path, sep=r"\s+", header=0, dtype={'ID_2': str})
-            sample = sample.drop(columns=["sex"], errors="ignore")
-            sample = sample.iloc[1:].reset_index(drop=True)
+        # Ensure both columns are strings for merging
+        sample = pd.read_csv(sample_path, sep=r"\s+", header=0, dtype={'ID_2': str})
+        sample = sample.drop(columns=["sex"], errors="ignore")
+        sample = sample.iloc[1:].reset_index(drop=True)
 
-            covar = pd.read_csv(self._association_pack.final_covariates, sep=' ', header=0, dtype={'IID': str})
+        covar = pd.read_csv(self._association_pack.final_covariates, sep=' ', header=0, dtype={'IID': str})
 
-            merged = sample.merge(
-                covar,
-                how="left",
-                left_on="ID_2",
-                right_on="IID"
-            )
+        merged = sample.merge(
+            covar,
+            how="left",
+            left_on="ID_2",
+            right_on="IID"
+        )
 
-            # 6. Drop only these (sex already removed)
-            merged = merged.drop(columns=["ID_1", "missing"], errors="ignore")
+        # 6. Drop only these (sex already removed)
+        merged = merged.drop(columns=["ID_1", "missing"], errors="ignore")
 
-            # 7. Sort by ID_2
-            merged = merged.sort_values("ID_2")
+        # 7. Sort by ID_2
+        merged = merged.sort_values("ID_2")
 
-            # 8. Write merged covariates to file for STAAR Null
-            merged_cov_path = Path("merged_covariates_for_staar.tsv")
+        # 8. Write merged covariates to file for STAAR Null
+        merged_cov_path = Path("merged_covariates_for_staar.tsv")
 
-            # Remove rows with missing phenotype or any covariates that will be used in the model
-            # This ensures the sample list matches what R will actually use
-            for phenoname in self._association_pack.pheno_names:
-                if phenoname in merged.columns:
-                    merged = merged.dropna(subset=[phenoname])
+        # Remove rows with missing phenotype or any covariates that will be used in the model
+        # This ensures the sample list matches what R will actually use
+        for phenoname in self._association_pack.pheno_names:
+            if phenoname in merged.columns:
+                merged = merged.dropna(subset=[phenoname])
 
-            # Also drop samples with missing covariates that will be used
-            required_cols = ['age', 'age_squared', 'batch']
-            if self._association_pack.sex == 2:
-                required_cols.append('sex')
-            for i in range(1, 11):
-                required_cols.append(f'PC{i}')
-            required_cols.extend(self._association_pack.found_quantitative_covariates)
-            required_cols.extend(self._association_pack.found_categorical_covariates)
+        # Also drop samples with missing covariates that will be used
+        required_cols = ['age', 'age_squared', 'batch']
+        if self._association_pack.sex == 2:
+            required_cols.append('sex')
+        for i in range(1, 11):
+            required_cols.append(f'PC{i}')
+        required_cols.extend(self._association_pack.found_quantitative_covariates)
+        required_cols.extend(self._association_pack.found_categorical_covariates)
 
-            # Only keep columns that exist
-            required_cols = [col for col in required_cols if col in merged.columns]
-            merged = merged.dropna(subset=required_cols)
+        # Only keep columns that exist
+        required_cols = [col for col in required_cols if col in merged.columns]
+        merged = merged.dropna(subset=required_cols)
 
-            self._logger.info(f"After removing samples with missing data: {len(merged)} samples remain")
+        self._logger.info(f"After removing samples with missing data: {len(merged)} samples remain")
 
-            merged.to_csv(merged_cov_path, sep="\t", index=False)
+        merged.to_csv(merged_cov_path, sep="\t", index=False)
 
-            for phenoname in self._association_pack.pheno_names:
-                thread_utility.launch_job(function=staar_null,
-                                          inputs={
-                                              'phenofile': str(merged_cov_path),
-                                              'phenotype': phenoname,
-                                              'is_binary': self._association_pack.is_binary,
-                                              'ignore_base': self._association_pack.ignore_base_covariates,
-                                              'found_quantitative_covariates': self._association_pack.found_quantitative_covariates,
-                                              'found_categorical_covariates': self._association_pack.found_categorical_covariates,
-                                              'sex': self._association_pack.sex,
-                                              'sparse_kinship_file': self._association_pack.sparse_grm,
-                                              'sparse_kinship_samples': self._association_pack.sparse_grm_sample
-                                          },
-                                          outputs=['staar_null_model']
-                                          )
-            thread_utility.submit_and_monitor()
-        else:
-            self._logger.info("STAAR null model already exists, skipping...")
+        for phenoname in self._association_pack.pheno_names:
+            thread_utility.launch_job(function=staar_null,
+                                      inputs={
+                                          'phenofile': str(merged_cov_path),
+                                          'phenotype': phenoname,
+                                          'is_binary': self._association_pack.is_binary,
+                                          'ignore_base': self._association_pack.ignore_base_covariates,
+                                          'found_quantitative_covariates': self._association_pack.found_quantitative_covariates,
+                                          'found_categorical_covariates': self._association_pack.found_categorical_covariates,
+                                          'sex': self._association_pack.sex,
+                                          'sparse_kinship_file': self._association_pack.sparse_grm,
+                                          'sparse_kinship_samples': self._association_pack.sparse_grm_sample
+                                      },
+                                      outputs=['phenotype', 'staar_null_model']
+                                      )
+        thread_utility.submit_and_monitor()
+
+        # Collect results into a dict keyed by phenotype
+        null_models = {}
+        for result in thread_utility:
+            phenotype = result['phenotype']
+            null_models[phenotype] = result['staar_null_model']
+
 
         # Filter STAAR samples tables to match the samples in the null model
         self._logger.info("Filtering STAAR samples tables to match null model samples...")
@@ -165,7 +169,7 @@ class STAARRunner(ToolRunner):
                         json.dump(subset_staar_data, f, default=lambda o: list(o) if isinstance(o, set) else o)
 
                     # export the files we need
-                    null_model = exporter.export_files(f'{phenoname}.STAAR_null.rds')
+                    null_model = exporter.export_files(null_models[phenoname])
                     staar_samples = exporter.export_files(f'{tarball_prefix}.{chromosome}.STAAR.samples_table.tsv')
                     variants_table = exporter.export_files(
                         f'{tarball_prefix}.{chromosome}.STAAR.variants_table.tsv')
@@ -245,7 +249,7 @@ class STAARRunner(ToolRunner):
                                                      chrom_column='chrom', pos_column='start',
                                                      alt_column=None,
                                                      id_column='ENST',
-                                                     p_column='p_val_burden',
+                                                     p_column='staar.O.p',
                                                      csq_column='MASK',
                                                      maf_column='cMAC', gene_symbol_column='SYMBOL',
                                                      clumping_distance=1,
@@ -254,67 +258,68 @@ class STAARRunner(ToolRunner):
 
                 manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.STAAR.png')
 
-    def _process_association_results(self, result_file: Path, annotation_file: Path) -> pd.DataFrame:
-        """Process STAAR results and add gene annotations"""
 
-        # Read STAAR results
-        staar_df = pd.read_csv(result_file, sep='\t', index_col=0)
-        self._logger.info(f"STAAR results shape: {staar_df.shape}")
+def _process_association_results(self, result_file: Path, annotation_file: Path) -> pd.DataFrame:
+    """Process STAAR results and add gene annotations"""
 
-        # Read annotation file to get chromosome and position info
-        annotations = pd.read_csv(annotation_file, sep='\t')
-        self._logger.info(f"Annotations shape: {annotations.shape}")
+    # Read STAAR results
+    staar_df = pd.read_csv(result_file, sep='\t', index_col=0)
+    self._logger.info(f"STAAR results shape: {staar_df.shape}")
 
-        # Normalize transcript IDs so STAAR output and annotations match
-        staar_has_versions = any('.' in idx for idx in staar_df.index[:10])
-        annot_has_versions = any('.' in enst for enst in annotations['ENST'].head(10))
-        if staar_has_versions and not annot_has_versions:
-            staar_df.index = staar_df.index.str.split('.').str[0]
-        elif annot_has_versions and not staar_has_versions:
-            annotations['ENST'] = annotations['ENST'].str.split('.').str[0]
+    # Read annotation file to get chromosome and position info
+    annotations = pd.read_csv(annotation_file, sep='\t')
+    self._logger.info(f"Annotations shape: {annotations.shape}")
 
-        # Create a mapping from transcript ID to chrom/start/end
-        gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL', 'manh.pos']].copy()
+    # Normalize transcript IDs so STAAR output and annotations match
+    staar_has_versions = any('.' in idx for idx in staar_df.index[:10])
+    annot_has_versions = any('.' in enst for enst in annotations['ENST'].head(10))
+    if staar_has_versions and not annot_has_versions:
+        staar_df.index = staar_df.index.str.split('.').str[0]
+    elif annot_has_versions and not staar_has_versions:
+        annotations['ENST'] = annotations['ENST'].str.split('.').str[0]
 
-        # Check overlap before joining
-        staar_transcripts = set(staar_df.index)
-        annot_transcripts = set(gene_info.index)
-        overlap = staar_transcripts & annot_transcripts
-        missing = staar_transcripts - annot_transcripts
+    # Create a mapping from transcript ID to chrom/start/end
+    gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL', 'manh.pos']].copy()
 
-        self._logger.info(
-            f"Transcript overlap: {len(overlap)} of {len(staar_transcripts)} "
-            f"({100 * len(overlap) / len(staar_transcripts):.1f}%)"
-        )
-        if missing:
-            self._logger.warning(f"Transcripts in STAAR but not in annotations: {len(missing)}")
-            self._logger.warning(f"Examples: {list(missing)[:10]}")
+    # Check overlap before joining
+    staar_transcripts = set(staar_df.index)
+    annot_transcripts = set(gene_info.index)
+    overlap = staar_transcripts & annot_transcripts
+    missing = staar_transcripts - annot_transcripts
 
-        # Join with STAAR results
-        staar_with_coords = staar_df.join(gene_info, how='left')
+    self._logger.info(
+        f"Transcript overlap: {len(overlap)} of {len(staar_transcripts)} "
+        f"({100 * len(overlap) / len(staar_transcripts):.1f}%)"
+    )
+    if missing:
+        self._logger.warning(f"Transcripts in STAAR but not in annotations: {len(missing)}")
+        self._logger.warning(f"Examples: {list(missing)[:10]}")
 
-        # Check how many rows got coordinates
-        missing_coords = staar_with_coords['chrom'].isna().sum()
-        if missing_coords > 0:
-            self._logger.warning(
-                f"{missing_coords} out of {len(staar_with_coords)} genes missing chromosome coordinates")
+    # Join with STAAR results
+    staar_with_coords = staar_df.join(gene_info, how='left')
 
-            # REMOVE genes without coordinates
-            self._logger.warning(f"Removing {missing_coords} genes without coordinates")
-            staar_with_coords = staar_with_coords.dropna(subset=['chrom', 'start', 'end'])
-            self._logger.info(f"After removing genes without coordinates: {len(staar_with_coords)} genes remain")
+    # Check how many rows got coordinates
+    missing_coords = staar_with_coords['chrom'].isna().sum()
+    if missing_coords > 0:
+        self._logger.warning(
+            f"{missing_coords} out of {len(staar_with_coords)} genes missing chromosome coordinates")
 
-        if len(staar_with_coords) == 0:
-            raise ValueError("No genes remaining after filtering for coordinate information")
+        # REMOVE genes without coordinates
+        self._logger.warning(f"Removing {missing_coords} genes without coordinates")
+        staar_with_coords = staar_with_coords.dropna(subset=['chrom', 'start', 'end'])
+        self._logger.info(f"After removing genes without coordinates: {len(staar_with_coords)} genes remain")
 
-        # Convert position columns to integers
-        staar_with_coords['start'] = staar_with_coords['start'].astype(int)
-        staar_with_coords['end'] = staar_with_coords['end'].astype(int)
+    if len(staar_with_coords) == 0:
+        raise ValueError("No genes remaining after filtering for coordinate information")
 
-        # Sort by chromosome and position
-        staar_with_coords = staar_with_coords.sort_values(['chrom', 'start'])
+    # Convert position columns to integers
+    staar_with_coords['start'] = staar_with_coords['start'].astype(int)
+    staar_with_coords['end'] = staar_with_coords['end'].astype(int)
 
-        return staar_with_coords
+    # Sort by chromosome and position
+    staar_with_coords = staar_with_coords.sort_values(['chrom', 'start'])
+
+    return staar_with_coords
 
 
 @dxpy.entry_point('multithread_staar_burden')
