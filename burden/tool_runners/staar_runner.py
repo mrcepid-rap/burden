@@ -1,6 +1,7 @@
+import gc
 import json
 from pathlib import Path
-from typing import Any, List, Dict
+from typing import Dict
 
 import dxpy
 import pandas as pd
@@ -8,18 +9,15 @@ from general_utilities.association_resources import bgzip_and_tabix
 from general_utilities.bgen_utilities.genotype_matrix import generate_csr_matrix_from_bgen
 from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
-from general_utilities.import_utils.import_lib import LOGGER, TarballType
-from general_utilities.job_management.command_executor import build_default_command_executor
+from general_utilities.import_utils.import_lib import LOGGER
 from general_utilities.job_management.joblauncher_factory import joblauncher_factory
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.linear_model.proccess_model_output import process_model_outputs
-from general_utilities.linear_model.staar_model import load_staar_genetic_data, staar_genes, staar_null, \
-    STAARModelResult
+from general_utilities.linear_model.staar_model import load_staar_genetic_data, staar_genes, staar_null
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 from scipy.io import mmwrite
-from dataclasses import asdict
+
 from burden.tool_runners.tool_runner import ToolRunner
-import gc
 
 
 class STAARRunner(ToolRunner):
@@ -28,11 +26,8 @@ class STAARRunner(ToolRunner):
     def run_tool(self) -> None:
         """Execute the STAAR pipeline across phenotypes, tarball masks, and chromosomes."""
 
-        # 1. Run the STAAR NULL model
-        self._logger.info("Running STAAR Null Model...")
         if not Path('phenotype.STAAR_null.rds').exists():
-            # 1. Run the STAAR NULL model
-            self._logger.info("Running STAAR Null Model(s)...")
+            self._logger.info("Running STAAR null model(s)...")
             thread_utility = ThreadUtility(self._association_pack.threads,
                                            thread_factor=1)
 
@@ -59,11 +54,6 @@ class STAARRunner(ToolRunner):
             # 7. Sort by ID_2
             merged = merged.sort_values("ID_2")
 
-            pd.set_option('display.max_columns', None)
-
-            print("=== MERGED HEAD ===")
-            print(merged.head())
-
             # 8. Write merged covariates to file for STAAR Null
             merged_cov_path = Path("merged_covariates_for_staar.tsv")
 
@@ -89,7 +79,6 @@ class STAARRunner(ToolRunner):
             self._logger.info(f"After removing samples with missing data: {len(merged)} samples remain")
 
             merged.to_csv(merged_cov_path, sep="\t", index=False)
-
 
             for phenoname in self._association_pack.pheno_names:
                 thread_utility.launch_job(function=staar_null,
@@ -226,41 +215,8 @@ class STAARRunner(ToolRunner):
         if completed_staar_chunks:
             combined_staar = pd.concat(completed_staar_chunks, axis=0)
 
-            # Debug: print what columns we have in combined dataframe
-            self._logger.info(f"Combined STAAR columns: {combined_staar.columns.tolist()}")
             self._logger.info(f"Combined STAAR shape: {combined_staar.shape}")
-            self._logger.info(f"Combined STAAR head:\n{combined_staar.head()}")
 
-            # NEW: Check for missing data
-            self._logger.info(f"\n=== MISSING DATA SUMMARY ===")
-            self._logger.info(f"Rows with missing chrom: {combined_staar['chrom'].isna().sum()}")
-            self._logger.info(f"Rows with missing start: {combined_staar['start'].isna().sum()}")
-            self._logger.info(f"Rows with missing end: {combined_staar['end'].isna().sum()}")
-            self._logger.info(f"Rows with missing SYMBOL: {combined_staar['SYMBOL'].isna().sum()}")
-
-            # NEW: Show examples of rows with missing coordinates
-            if combined_staar['chrom'].isna().any():
-                self._logger.info(f"\n=== EXAMPLES OF ROWS WITH MISSING COORDINATES ===")
-                missing_rows = combined_staar[combined_staar['chrom'].isna()]
-                self._logger.info(f"First 5 genes missing coordinates:")
-                self._logger.info(f"{missing_rows.head().to_string()}")
-
-            # NEW: Print the actual header as it will appear in the file
-            self._logger.info(f"\n=== FILE HEADER (first line of TSV) ===")
-            self._logger.info(f"Index name: {combined_staar.index.name}")
-            header_columns = [combined_staar.index.name] + combined_staar.columns.tolist()
-            self._logger.info(f"Columns (as they'll be written): {header_columns}")
-            self._logger.info(f"Column count: {len(header_columns)}")
-
-            # Count the position of chrom, start, end
-            if 'chrom' in combined_staar.columns:
-                chrom_pos = header_columns.index('chrom')
-                start_pos = header_columns.index('start')
-                end_pos = header_columns.index('end')
-                self._logger.info(
-                    f"Column positions (1-indexed): chrom={chrom_pos + 1}, start={start_pos + 1}, end={end_pos + 1}")
-
-            # REPLACE THE OLD SORTING CODE WITH THIS:
             # Convert chrom to categorical with proper order for sorting
             chrom_order = [str(i) for i in range(1, 23)] + ['X', 'Y', 'MT']
             combined_staar['chrom'] = pd.Categorical(combined_staar['chrom'], categories=chrom_order, ordered=True)
@@ -304,29 +260,21 @@ class STAARRunner(ToolRunner):
         # Read STAAR results
         staar_df = pd.read_csv(result_file, sep='\t', index_col=0)
         self._logger.info(f"STAAR results shape: {staar_df.shape}")
-        self._logger.info(f"STAAR results index name: {staar_df.index.name}")
 
         # Read annotation file to get chromosome and position info
         annotations = pd.read_csv(annotation_file, sep='\t')
         self._logger.info(f"Annotations shape: {annotations.shape}")
 
-        # Check for version numbers in transcript IDs
+        # Normalize transcript IDs so STAAR output and annotations match
         staar_has_versions = any('.' in idx for idx in staar_df.index[:10])
         annot_has_versions = any('.' in enst for enst in annotations['ENST'].head(10))
-        self._logger.info(f"STAAR transcript IDs have version numbers: {staar_has_versions}")
-        self._logger.info(f"Annotation transcript IDs have version numbers: {annot_has_versions}")
-
-        # If one has versions and the other doesn't, strip versions
         if staar_has_versions and not annot_has_versions:
-            self._logger.info("Stripping version numbers from STAAR transcript IDs")
             staar_df.index = staar_df.index.str.split('.').str[0]
         elif annot_has_versions and not staar_has_versions:
-            self._logger.info("Stripping version numbers from annotation transcript IDs")
             annotations['ENST'] = annotations['ENST'].str.split('.').str[0]
 
         # Create a mapping from transcript ID to chrom/start/end
         gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL', 'manh.pos']].copy()
-        self._logger.info(f"Gene info shape after indexing: {gene_info.shape}")
 
         # Check overlap before joining
         staar_transcripts = set(staar_df.index)
@@ -334,10 +282,10 @@ class STAARRunner(ToolRunner):
         overlap = staar_transcripts & annot_transcripts
         missing = staar_transcripts - annot_transcripts
 
-        self._logger.info(f"Transcripts in STAAR: {len(staar_transcripts)}")
-        self._logger.info(f"Transcripts in annotations: {len(annot_transcripts)}")
         self._logger.info(
-            f"Overlapping transcripts: {len(overlap)} ({100 * len(overlap) / len(staar_transcripts):.1f}%)")
+            f"Transcript overlap: {len(overlap)} of {len(staar_transcripts)} "
+            f"({100 * len(overlap) / len(staar_transcripts):.1f}%)"
+        )
         if missing:
             self._logger.warning(f"Transcripts in STAAR but not in annotations: {len(missing)}")
             self._logger.warning(f"Examples: {list(missing)[:10]}")
@@ -368,6 +316,7 @@ class STAARRunner(ToolRunner):
 
         return staar_with_coords
 
+
 @dxpy.entry_point('multithread_staar_burden')
 def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: str, staar_null_model: dict,
                              bgen_file: str,
@@ -392,14 +341,11 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
 
     :return: Dictionary containing list of STAAR results.
     """
-    # load our VM environment
-    cmd_executor = build_default_command_executor()
     null_model = InputFileHandler(staar_null_model).get_file_handle()
     staar_samples = InputFileHandler(staar_samples).get_file_handle()
     staar_variants = InputFileHandler(variants_table).get_file_handle()
     chunk_file = InputFileHandler(chunk_file).get_file_handle()
     transcripts_table = InputFileHandler(transcripts_table).get_file_handle()
-
 
     with open(chunk_file, "r") as f:
         staar_data = json.load(f)
