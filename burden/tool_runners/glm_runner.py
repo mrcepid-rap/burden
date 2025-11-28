@@ -67,7 +67,7 @@ class GLMRunner(ToolRunner):
 
         # 4. Annotate unformatted results and print final tabular outputs
         self._logger.info("Processing Linear Model results")
-        output_path = Path(f'{self._output_prefix}.genes.glm.stats.tsv')
+        output_path = Path(f'{self._output_prefix}.genes.GLM.stats.tsv')
         self._outputs.extend(process_model_outputs(completed_models,
                                                    output_path,
                                                    self._association_pack.tarball_type,
