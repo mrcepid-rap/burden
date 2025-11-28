@@ -347,7 +347,7 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     :return: Dictionary containing list of STAAR results.
     """
     null_model = InputFileHandler(staar_null_model).get_file_handle()
-    staar_samples = InputFileHandler(staar_samples).get_file_handle()
+    staar_samples_path = InputFileHandler(staar_samples).get_file_handle()  # Changed variable name
     staar_variants = InputFileHandler(variants_table).get_file_handle()
     chunk_file = InputFileHandler(chunk_file).get_file_handle()
     transcripts_table = InputFileHandler(transcripts_table).get_file_handle()
@@ -359,6 +359,10 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     bgen_path = InputFileHandler(bgen_file).get_file_handle()
     index_path = InputFileHandler(bgen_index).get_file_handle()
     sample_path = InputFileHandler(bgen_sample).get_file_handle()
+
+    # READ THE FILTERED SAMPLES TABLE ONCE (moved outside loop)
+    filtered_samples = pd.read_csv(staar_samples_path, sep='\t')
+    keep_rows = filtered_samples['row'].values
 
     # Limit concurrency per worker so that R-based jobs do not overwhelm the VM.
     thread_utility = ThreadUtility(threads=1)
@@ -380,6 +384,10 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
             should_collapse_matrix=False
         )
 
+        # SUBSET THE MATRIX to only the rows in filtered_samples
+        # The 'row' column contains 0-indexed positions in the original BGEN
+        matrix = matrix[keep_rows, :]
+
         # export matrix to file
         matrix_file = f"{tarball_prefix}.{chromosome}.{gene}.STAAR.mtx"
         mmwrite(matrix_file, matrix)
@@ -397,7 +405,7 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
                 'gene': gene,
                 'mask_name': tarball_prefix,
                 'staar_matrix': matrix_file,
-                'staar_samples': staar_samples,
+                'staar_samples': staar_samples_path,  # Pass the path
                 'staar_variants': staar_variants,
                 'out_dir': Path('.'),
             },
@@ -407,9 +415,7 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
     thread_utility.submit_and_monitor()
 
     completed_staar_files = []
-    # And gather the resulting futures
     for result in thread_utility:
-        # Each result is a dict with {'staar_result': STAARModelResult(...)}
         staar_result = result["staar_result"]
         completed_staar_files.append(staar_result)
 
