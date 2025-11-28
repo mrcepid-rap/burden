@@ -77,6 +77,8 @@ class STAARRunner(ToolRunner):
 
         self._logger.info(f"After removing samples with missing data: {len(merged)} samples remain")
 
+        # Rename ID_2 to FID for R compatibility (R script expects FID column)
+        merged = merged.rename(columns={'ID_2': 'FID'})
         merged.to_csv(merged_cov_path, sep="\t", index=False)
 
         for phenoname in self._association_pack.pheno_names:
@@ -110,7 +112,7 @@ class STAARRunner(ToolRunner):
         merged_cov_path = Path("merged_covariates_for_staar.tsv")
         if merged_cov_path.exists():
             merged_samples = pd.read_csv(merged_cov_path, sep='\t')
-            null_model_samples = set(merged_samples['ID_2'].astype(str))
+            null_model_samples = set(merged_samples['FID'].astype(str))  # Changed from ID_2 to FID
 
             # Now filter each STAAR samples table
             for tarball_prefix in self._association_pack.tarball_prefixes:
