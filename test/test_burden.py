@@ -18,7 +18,7 @@ import pytest
 from burden.loader import LoadModule
 
 # Set this flag to True if you want to keep (copy) the temporary output files
-KEEP_TEMP = False
+KEEP_TEMP = True
 
 # test data directory
 test_data_dir = Path(__file__).parent / 'test_data'
@@ -60,8 +60,9 @@ def temporary_path(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("tool, expected_output", [
     # ("regenie", "test.genes.REGENIE.stats.tsv"),
-    ("saige", "test.genes.SAIGE.stats.tsv"),
+    # ("saige", "test.genes.SAIGE.stats.tsv"),
     # ("bolt", "test.genes.BOLT.stats.tsv"),
+    ("glm", "test.genes.GLM.stats.tsv"),
 ])
 def test_burden_tools(tool, expected_output, temporary_path):
     """
