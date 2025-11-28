@@ -346,11 +346,22 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
 
     :return: Dictionary containing list of STAAR results.
     """
+
     null_model = InputFileHandler(staar_null_model).get_file_handle()
     staar_samples_path = InputFileHandler(staar_samples).get_file_handle()  # Changed variable name
     staar_variants = InputFileHandler(variants_table).get_file_handle()
     chunk_file = InputFileHandler(chunk_file).get_file_handle()
     transcripts_table = InputFileHandler(transcripts_table).get_file_handle()
+
+    # READ THE FILTERED SAMPLES TABLE ONCE (moved outside loop)
+    filtered_samples = pd.read_csv(staar_samples_path, sep='\t')
+    keep_rows = filtered_samples['row'].values
+
+    # ADD THIS DEBUG
+    LOGGER.info(f"DEBUG: Filtered samples shape: {filtered_samples.shape}")
+    LOGGER.info(f"DEBUG: Sample IDs (first 5): {filtered_samples['sampID'].head().tolist()}")
+    LOGGER.info(f"DEBUG: Row indices (first 5): {filtered_samples['row'].head().tolist()}")
+    LOGGER.info(f"DEBUG: Row indices range: [{keep_rows.min()}, {keep_rows.max()}]")
 
     with open(chunk_file, "r") as f:
         staar_data = json.load(f)
@@ -391,6 +402,17 @@ def multithread_staar_burden(tarball_prefix: str, chromosome: str, phenoname: st
         # export matrix to file
         matrix_file = f"{tarball_prefix}.{chromosome}.{gene}.STAAR.mtx"
         mmwrite(matrix_file, matrix)
+
+        # ADD THIS DEBUG
+        if gene == "ENST00000403799":  # GCK
+            LOGGER.info(f"!!! GCK DEBUG !!!")
+            LOGGER.info(f"Matrix shape after subsetting: {matrix.shape}")
+            LOGGER.info(f"Non-zero entries: {matrix.nnz}")
+            LOGGER.info(f"Total allele count (cMAC): {matrix.sum()}")
+            # Check how many samples have variants
+            sample_sums = matrix.sum(axis=1).A1
+            n_carriers = (sample_sums > 0).sum()
+            LOGGER.info(f"Number of carriers: {n_carriers}")
 
         # Clean up matrix from memory immediately
         del matrix
