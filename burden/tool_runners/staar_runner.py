@@ -259,67 +259,67 @@ class STAARRunner(ToolRunner):
                 manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.STAAR.png')
 
 
-def _process_association_results(self, result_file: Path, annotation_file: Path) -> pd.DataFrame:
-    """Process STAAR results and add gene annotations"""
+    def _process_association_results(self, result_file: Path, annotation_file: Path) -> pd.DataFrame:
+        """Process STAAR results and add gene annotations"""
 
-    # Read STAAR results
-    staar_df = pd.read_csv(result_file, sep='\t', index_col=0)
-    self._logger.info(f"STAAR results shape: {staar_df.shape}")
+        # Read STAAR results
+        staar_df = pd.read_csv(result_file, sep='\t', index_col=0)
+        self._logger.info(f"STAAR results shape: {staar_df.shape}")
 
-    # Read annotation file to get chromosome and position info
-    annotations = pd.read_csv(annotation_file, sep='\t')
-    self._logger.info(f"Annotations shape: {annotations.shape}")
+        # Read annotation file to get chromosome and position info
+        annotations = pd.read_csv(annotation_file, sep='\t')
+        self._logger.info(f"Annotations shape: {annotations.shape}")
 
-    # Normalize transcript IDs so STAAR output and annotations match
-    staar_has_versions = any('.' in idx for idx in staar_df.index[:10])
-    annot_has_versions = any('.' in enst for enst in annotations['ENST'].head(10))
-    if staar_has_versions and not annot_has_versions:
-        staar_df.index = staar_df.index.str.split('.').str[0]
-    elif annot_has_versions and not staar_has_versions:
-        annotations['ENST'] = annotations['ENST'].str.split('.').str[0]
+        # Normalize transcript IDs so STAAR output and annotations match
+        staar_has_versions = any('.' in idx for idx in staar_df.index[:10])
+        annot_has_versions = any('.' in enst for enst in annotations['ENST'].head(10))
+        if staar_has_versions and not annot_has_versions:
+            staar_df.index = staar_df.index.str.split('.').str[0]
+        elif annot_has_versions and not staar_has_versions:
+            annotations['ENST'] = annotations['ENST'].str.split('.').str[0]
 
-    # Create a mapping from transcript ID to chrom/start/end
-    gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL', 'manh.pos']].copy()
+        # Create a mapping from transcript ID to chrom/start/end
+        gene_info = annotations.set_index('ENST')[['chrom', 'start', 'end', 'SYMBOL', 'manh.pos']].copy()
 
-    # Check overlap before joining
-    staar_transcripts = set(staar_df.index)
-    annot_transcripts = set(gene_info.index)
-    overlap = staar_transcripts & annot_transcripts
-    missing = staar_transcripts - annot_transcripts
+        # Check overlap before joining
+        staar_transcripts = set(staar_df.index)
+        annot_transcripts = set(gene_info.index)
+        overlap = staar_transcripts & annot_transcripts
+        missing = staar_transcripts - annot_transcripts
 
-    self._logger.info(
-        f"Transcript overlap: {len(overlap)} of {len(staar_transcripts)} "
-        f"({100 * len(overlap) / len(staar_transcripts):.1f}%)"
-    )
-    if missing:
-        self._logger.warning(f"Transcripts in STAAR but not in annotations: {len(missing)}")
-        self._logger.warning(f"Examples: {list(missing)[:10]}")
+        self._logger.info(
+            f"Transcript overlap: {len(overlap)} of {len(staar_transcripts)} "
+            f"({100 * len(overlap) / len(staar_transcripts):.1f}%)"
+        )
+        if missing:
+            self._logger.warning(f"Transcripts in STAAR but not in annotations: {len(missing)}")
+            self._logger.warning(f"Examples: {list(missing)[:10]}")
 
-    # Join with STAAR results
-    staar_with_coords = staar_df.join(gene_info, how='left')
+        # Join with STAAR results
+        staar_with_coords = staar_df.join(gene_info, how='left')
 
-    # Check how many rows got coordinates
-    missing_coords = staar_with_coords['chrom'].isna().sum()
-    if missing_coords > 0:
-        self._logger.warning(
-            f"{missing_coords} out of {len(staar_with_coords)} genes missing chromosome coordinates")
+        # Check how many rows got coordinates
+        missing_coords = staar_with_coords['chrom'].isna().sum()
+        if missing_coords > 0:
+            self._logger.warning(
+                f"{missing_coords} out of {len(staar_with_coords)} genes missing chromosome coordinates")
 
-        # REMOVE genes without coordinates
-        self._logger.warning(f"Removing {missing_coords} genes without coordinates")
-        staar_with_coords = staar_with_coords.dropna(subset=['chrom', 'start', 'end'])
-        self._logger.info(f"After removing genes without coordinates: {len(staar_with_coords)} genes remain")
+            # REMOVE genes without coordinates
+            self._logger.warning(f"Removing {missing_coords} genes without coordinates")
+            staar_with_coords = staar_with_coords.dropna(subset=['chrom', 'start', 'end'])
+            self._logger.info(f"After removing genes without coordinates: {len(staar_with_coords)} genes remain")
 
-    if len(staar_with_coords) == 0:
-        raise ValueError("No genes remaining after filtering for coordinate information")
+        if len(staar_with_coords) == 0:
+            raise ValueError("No genes remaining after filtering for coordinate information")
 
-    # Convert position columns to integers
-    staar_with_coords['start'] = staar_with_coords['start'].astype(int)
-    staar_with_coords['end'] = staar_with_coords['end'].astype(int)
+        # Convert position columns to integers
+        staar_with_coords['start'] = staar_with_coords['start'].astype(int)
+        staar_with_coords['end'] = staar_with_coords['end'].astype(int)
 
-    # Sort by chromosome and position
-    staar_with_coords = staar_with_coords.sort_values(['chrom', 'start'])
+        # Sort by chromosome and position
+        staar_with_coords = staar_with_coords.sort_values(['chrom', 'start'])
 
-    return staar_with_coords
+        return staar_with_coords
 
 
 @dxpy.entry_point('multithread_staar_burden')
