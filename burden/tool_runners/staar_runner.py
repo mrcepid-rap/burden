@@ -249,7 +249,7 @@ class STAARRunner(ToolRunner):
                                                      chrom_column='chrom', pos_column='start',
                                                      alt_column=None,
                                                      id_column='ENST',
-                                                     p_column='staar.O.p',
+                                                     p_column='p_val_burden',
                                                      csq_column='MASK',
                                                      maf_column='cMAC', gene_symbol_column='SYMBOL',
                                                      clumping_distance=1,
