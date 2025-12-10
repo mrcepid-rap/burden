@@ -69,6 +69,9 @@ class REGENIERunner(ToolRunner):
             self._logger.info("Processing REGENIE outputs...")
             self._outputs.extend(self._annotate_regenie_output(completed_gene_tables=completed_gene_tables))
 
+            # crash to debug
+            raise Exception("Debug crash point")
+
     def _run_regenie_step_one(self) -> Path:
 
         # And generate a SNP list for the --extract parameter of REGENIE, while considering SNPs from
@@ -203,9 +206,6 @@ class REGENIERunner(ToolRunner):
         regenie_table = pd.read_csv(f'{tarball_prefix}.{chromosome}_{self._association_pack.pheno_names[0]}.regenie',
                                     sep=' ',
                                     comment='#')
-
-        pd.set_option('display.max_columns', None)
-        print(regenie_table.head())
 
         # And then should be able to split into 3 columns:
         regenie_table[['ENST', 'MASK', 'SUBSET']] = regenie_table['ID'].str.split('.', expand=True)
