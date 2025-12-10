@@ -69,9 +69,6 @@ class REGENIERunner(ToolRunner):
             self._logger.info("Processing REGENIE outputs...")
             self._outputs.extend(self._annotate_regenie_output(completed_gene_tables=completed_gene_tables))
 
-            # crash to debug
-            raise Exception("Debug crash point")
-
     def _run_regenie_step_one(self) -> Path:
 
         # And generate a SNP list for the --extract parameter of REGENIE, while considering SNPs from
