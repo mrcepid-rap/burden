@@ -204,6 +204,9 @@ class REGENIERunner(ToolRunner):
                                     sep=' ',
                                     comment='#')
 
+        pd.set_option('display.max_columns', None)
+        print(regenie_table.head())
+
         # And then should be able to split into 3 columns:
         regenie_table[['ENST', 'MASK', 'SUBSET']] = regenie_table['ID'].str.split('.', expand=True)
 
