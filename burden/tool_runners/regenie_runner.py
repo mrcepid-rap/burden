@@ -183,7 +183,8 @@ class REGENIERunner(ToolRunner):
                                 },
                                 outputs=[
                                     "output"
-                                ]
+                                ],
+                                instance_type="mem3_ssd2_v2_x16",
                                 )
         launcher.submit_and_monitor()
 
