@@ -92,7 +92,7 @@ def test_burden_tools(tool, expected_output, temporary_path):
     )
 
     if tool == "regenie":
-        args += f"--regenie_run {test_data_dir}/step1_out.tar.gz "
+        args += f"--regenie_run {test_data_dir}/step1_out2.tar.gz "
 
     # --- Run module ---
     load_class = LoadModule(output_prefix="test", input_args=args)

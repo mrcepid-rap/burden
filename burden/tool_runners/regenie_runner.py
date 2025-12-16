@@ -1,11 +1,16 @@
 import re
 from pathlib import Path
-from typing import Tuple, List
+from typing import List, Any, Tuple, Dict
 
+import dxpy
 import pandas as pd
 from general_utilities.association_resources import define_covariate_string, \
-    define_field_names_from_tarball_prefix, bgzip_and_tabix
-from general_utilities.import_utils.import_lib import download_bgen_file
+    bgzip_and_tabix, define_field_names_from_tarball_prefix
+from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
+from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
+from general_utilities.import_utils.import_lib import LOGGER
+from general_utilities.job_management.command_executor import build_default_command_executor
+from general_utilities.job_management.joblauncher_factory import joblauncher_factory
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
 
@@ -30,42 +35,19 @@ class REGENIERunner(ToolRunner):
             self._logger.info("REGENIE step 1 files already exist, skipping...")
 
         # # 2. Prep bgen files for a run:
-        self._logger.info("Downloading and filtering raw bgen files")
-        thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A REGENIE bgen thread failed',
-                                       incrementor=10,
-                                       thread_factor=4)
+        self._logger.info("Preparing to launch subjobs for running REGENIE step 2 on separate VMs...")
 
-        for chromosome in self._association_pack.bgen_dict:
-            # This makes use of a utility class from AssociationResources since bgen filtering/processing is
-            # IDENTICAL to that done for BOLT.
-            thread_utility.launch_job(class_type=download_bgen_file,
-                                      chrom_bgen_index=self._association_pack.bgen_dict[chromosome]
-                                      )
-        thread_utility.collect_futures()
-
-        # 4. Run step 2 of regenie
-        self._logger.info("Running REGENIE step 2")
-        thread_utility = ThreadUtility(self._association_pack.threads,
-                                       error_message='A REGENIE step 2 thread failed',
-                                       incrementor=10,
-                                       thread_factor=1)
-        for chromosome in self._association_pack.bgen_dict:
-            for tarball_prefix in self._association_pack.tarball_prefixes:
-                # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
-                if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
-                    # print all files in directory
-                    thread_utility.launch_job(self._run_regenie_step_two,
-                                              tarball_prefix=tarball_prefix,
-                                              chromosome=chromosome)
+        all_step2_outputs = self._multithread_step2()
 
         # Gather preliminary results from step 2:
         self._logger.info("Gathering REGENIE mask-based results...")
         completed_gene_tables = []
         regenie_step2_genes_log = Path(f'{self._output_prefix}.REGENIE_step2_genes.log')
         with regenie_step2_genes_log.open('w') as regenie_step2_genes_writer:
-            for result in thread_utility:
-                tarball_prefix, finished_chromosome, current_log = result
+            for result in all_step2_outputs:
+                tarball_prefix = result['tarball_prefix']
+                finished_chromosome = result['finished_chromosome']
+                current_log = InputFileHandler(result['current_log']).get_file_handle()
 
                 completed_gene_tables.append(self._process_regenie_output(tarball_prefix,
                                                                           finished_chromosome))
@@ -77,15 +59,15 @@ class REGENIERunner(ToolRunner):
                     for line in current_log_reader:
                         regenie_step2_genes_writer.write(line)
 
-        self._outputs.append(regenie_step2_genes_log)
+            self._outputs.append(regenie_step2_genes_log)
 
-        # Always add predictions...
-        self._outputs.append(Path('fit_out_pred.list'))
-        self._outputs.extend(Path('./').glob('fit_out_*.loco'))
+            # Always add predictions...
+            self._outputs.append(Path('fit_out_pred.list'))
+            self._outputs.extend(Path('./').glob('fit_out_*.loco'))
 
-        # 5. Process outputs
-        self._logger.info("Processing REGENIE outputs...")
-        self._outputs.extend(self._annotate_regenie_output(completed_gene_tables))
+            # 5. Process outputs
+            self._logger.info("Processing REGENIE outputs...")
+            self._outputs.extend(self._annotate_regenie_output(completed_gene_tables=completed_gene_tables))
 
     def _run_regenie_step_one(self) -> Path:
 
@@ -94,13 +76,16 @@ class REGENIERunner(ToolRunner):
         # 1. Select variants from --extract (if present)
         # 2. THEN filter based on max/min AC (mac/max-mac)
         max_mac = (self._sample_count * 2) - 100
-        cmd = f'plink2 --bfile /test/{self._association_pack.genetic_filename} ' \
-              f'--min-ac 100 ' \
+        cmd = f"plink2 --bed {self._association_pack.genetic_filename}.bed " \
+              f"--bim {self._association_pack.genetic_filename}.bim " \
+              f"--fam {self._association_pack.genetic_filename}.fam " \
+              f"--min-ac 100 " \
               f'--max-ac {str(max_mac)}' \
               f' --write-snplist ' \
-              f'--out /test/REGENIE_extract'
+              f'--out REGENIE_extract'
+        self._association_pack.cmd_executor.run_cmd_on_docker(cmd)
 
-        with open('plink_out.txt', 'r') as plink_out:
+        with open('REGENIE_extract.snplist', 'r') as plink_out:
             for line in plink_out:
                 found_snp_count = re.search('(\\d+) variants remaining after main filters', line)
                 if found_snp_count is not None:
@@ -109,13 +94,13 @@ class REGENIERunner(ToolRunner):
 
         cmd = 'regenie ' \
               '--step 1 ' \
-              f'--bed /test/{self._association_pack.genetic_filename} ' \
-              '--extract /test/REGENIE_extract.snplist ' \
-              f'--covarFile /test/{self._association_pack.final_covariates} ' \
-              f'--phenoFile /test/{self._association_pack.final_covariates} ' \
+              f'--bed {self._association_pack.genetic_filename} ' \
+              '--extract REGENIE_extract.snplist ' \
+              f'--covarFile {self._association_pack.final_covariates} ' \
+              f'--phenoFile {self._association_pack.final_covariates} ' \
               '--maxCatLevels 110 ' \
               '--bsize 1000 ' \
-              '--out /test/fit_out ' \
+              '--out fit_out ' \
               f'--threads {str(self._association_pack.threads)} ' \
               f'--phenoCol {self._association_pack.pheno_names[0]} '
 
@@ -127,42 +112,91 @@ class REGENIERunner(ToolRunner):
 
         regenie_log = Path(f'{self._output_prefix}.REGENIE_step1.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
+
         return regenie_log
 
-    def _run_regenie_step_two(self, tarball_prefix: str, chromosome: str) -> Tuple[str, str, Path]:
+    def _multithread_step2(self) -> List[Dict[str, Any]]:
+        """
+        A function to run REGENIE step 2 on a single chromosome in a multithreaded manner
 
-        # Note – there is some issue with skato (in --vc-tests flag), so I have changed to skato-acat which works...?
-        cmd = f'regenie ' \
-              f'--step 2 ' \
-              f'--bgen /test/{chromosome}.bgen ' \
-              f'--sample /test/{chromosome}.sample ' \
-              f'--keep /test/SAMPLES_Include.txt ' \
-              f'--covarFile /test/{self._association_pack.final_covariates} ' \
-              f'--phenoFile /test/{self._association_pack.final_covariates} ' \
-              f'--phenoCol {self._association_pack.pheno_names[0]} ' \
-              f'--pred /test/fit_out_pred.list ' \
-              f'--anno-file /test/{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt ' \
-              f'--mask-def /test/{tarball_prefix}.{chromosome}.REGENIE.maskfile.txt ' \
-              f'--set-list /test/{tarball_prefix}.{chromosome}.REGENIE.setListFile.txt ' \
-              f'--aaf-bins 1 ' \
-              f'--vc-tests skato-acat,acato-full ' \
-              f'--bsize 400 ' \
-              f'--threads 1 ' \
-              f'--minMAC 1 ' \
-              f'--ref-first ' \
-              f'--maxCatLevels 110 ' \
-              f'--out /test/{tarball_prefix}.{chromosome} '
+        :return: A list of dictionaries containing the tarball prefix, finished chromosome, and log file
+        """
 
-        cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
-                                       self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary,
-                                       add_array=False,
-                                       ignore_base=self._association_pack.ignore_base_covariates)
+        # set the launcher
+        launcher = joblauncher_factory()
 
-        regenie_log = Path(f'{tarball_prefix}.{chromosome}.REGENIE_genes.log')
-        self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
+        # files to include
+        samples_include = self._association_pack.inclusion_samples
+        fit_out_pred = Path('fit_out_pred.list')
+        fit_out_loco = Path('fit_out_1.loco')
 
-        return tarball_prefix, chromosome, regenie_log
+        # set the exporter
+        exporter = ExportFileHandler(delete_on_upload=False)
+
+        for chunk in self._association_pack.bgen_dict:
+
+            # make a list of all annotation files for this chromosome
+            anno_files = list(Path('.').glob(f'*.{chunk}.REGENIE.annotationFile.txt'))
+            if not anno_files:
+                continue
+
+            # Explicitly construct mask and setlist file paths from tarball_prefixes
+            mask_files = [Path(f'{prefix}.{chunk}.REGENIE.maskfile.txt') for prefix in
+                          self._association_pack.tarball_prefixes if
+                          Path(f'{prefix}.{chunk}.REGENIE.maskfile.txt').exists()]
+            setlist_files = [Path(f'{prefix}.{chunk}.REGENIE.setListFile.txt') for prefix in
+                             self._association_pack.tarball_prefixes if
+                             Path(f'{prefix}.{chunk}.REGENIE.setListFile.txt').exists()]
+            if not mask_files or not setlist_files:
+                continue
+
+            # export the files to DX for each subjob
+            samples_include = exporter.export_files(samples_include)
+            fit_out_pred = exporter.export_files(fit_out_pred)
+            fit_out_loco = exporter.export_files(fit_out_loco)
+            phenotype_file = exporter.export_files(self._association_pack.final_covariates)
+            anno_files = [exporter.export_files(af) for af in anno_files]
+            mask_files = [exporter.export_files(mf) for mf in mask_files]
+            setlist_files = [exporter.export_files(sf) for sf in setlist_files]
+
+            launcher.launch_job(function=run_regenie_step2,
+                                inputs={
+                                    "bgen_file": self._association_pack.bgen_dict[chunk]['bgen'].get_input_str(),
+                                    "bgen_sample": self._association_pack.bgen_dict[chunk][
+                                        'sample'].get_input_str(),
+                                    "bgen_index": self._association_pack.bgen_dict[chunk]['index'].get_input_str(),
+                                    "chromosome": chunk,
+                                    "tarball_prefixes": self._association_pack.tarball_prefixes,
+                                    "samples_include": samples_include,
+                                    "covariate_file": phenotype_file,
+                                    "pheno_file": phenotype_file,
+                                    "pheno_column": self._association_pack.pheno_names[0],
+                                    "fit_out_pred": fit_out_pred,
+                                    "fit_out_loco": fit_out_loco,
+                                    "annotation_file": anno_files,
+                                    "mask_file": mask_files,
+                                    "setlist_file": setlist_files,
+                                    "found_quantitative_covariates": self._association_pack.found_quantitative_covariates,
+                                    "found_categorical_covariates": self._association_pack.found_categorical_covariates,
+                                    "is_binary": self._association_pack.is_binary,
+                                    "ignore_base_covariates": self._association_pack.ignore_base_covariates,
+                                },
+                                outputs=[
+                                    "output"
+                                ]
+                                )
+        launcher.submit_and_monitor()
+
+        step2_outputs = []
+        for result in launcher:
+            # result["output"] is already a list of dicts
+            for r in result["output"]:
+                # download subjob outputs to local machine
+                InputFileHandler(r["current_log"], download_now=True)
+                InputFileHandler(r["regenie_output"], download_now=True)
+                step2_outputs.append(r)
+
+        return step2_outputs
 
     def _process_regenie_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
 
@@ -210,7 +244,8 @@ class REGENIERunner(ToolRunner):
         regenie_table = pd.concat(completed_gene_tables)
 
         # Now merge the transcripts table into the gene table to add annotation and then write
-        regenie_table = pd.merge(self._transcripts_table, regenie_table, left_index=True, right_index=True, how="left")
+        regenie_table = pd.merge(self._transcripts_table, regenie_table, left_index=True, right_index=True,
+                                 how="left")
 
         regenie_gene_out = Path(f'{self._output_prefix}.genes.REGENIE.stats.tsv')
         with regenie_gene_out.open('w') as gene_out:
@@ -249,6 +284,178 @@ class REGENIERunner(ToolRunner):
             regenie_table.to_csv(path_or_buf=gene_out, index=False, sep="\t", na_rep='NA')
 
         # And bgzip and tabix...
-        outputs.extend(bgzip_and_tabix(regenie_gene_out, comment_char='c', sequence_row=1, begin_row=2, end_row=3))
+        outputs.extend(
+            bgzip_and_tabix(regenie_gene_out, comment_char='c', sequence_row=1, begin_row=2, end_row=3, force=True))
 
         return outputs
+
+
+@dxpy.entry_point('run_regenie_step2')
+def run_regenie_step2(
+        bgen_file: str, bgen_sample: str, bgen_index: str,
+        chromosome: str, tarball_prefixes: List[str], samples_include: str,
+        covariate_file: Path, pheno_file: Path, pheno_column: str, fit_out_pred: Path, fit_out_loco: Path,
+        annotation_file: str, mask_file: str, setlist_file: str, is_binary: bool,
+        found_quantitative_covariates: List[str], found_categorical_covariates: List[str],
+        ignore_base_covariates: bool) -> Dict[str, Any]:
+    """
+    A function to run REGENIE step 2 on a single chromosome
+
+    :param bgen_file: The bgen file to run
+    :param bgen_sample: The bgen sample file to run
+    :param bgen_index: The bgen index file to run
+    :param chromosome: The chromosome/chunk to run
+    :param tarball_prefixes: The tarball prefixes to run
+    :param samples_include: The samples to include
+    :param covariate_file: The covariate file to use
+    :param pheno_file: The phenotype file to use
+    :param pheno_column: The phenotype column to use
+    :param fit_out_pred: The prediction file from step 1
+    :param fit_out_loco: The LOCO file from step 1
+    :param annotation_file: Annotation files
+    :param mask_file: Mask files
+    :param setlist_file: Setlist files
+    :param is_binary: Whether the phenotype is binary
+    :param found_quantitative_covariates: Quantitative covariates to use
+    :param found_categorical_covariates: Categorical covariates to use
+    :param ignore_base_covariates: Whether to ignore base covariates
+
+    :return: The tarball prefix, finished chromosome, and log file
+    """
+
+    # set the command executor
+    cmd_exec = build_default_command_executor()
+
+    # we are now working per chunk
+    # Get all the files we need
+    bgen_file = InputFileHandler(bgen_file).get_file_handle()
+    sample_file = InputFileHandler(bgen_sample).get_file_handle()
+    samples_include = InputFileHandler(samples_include).get_file_handle()
+    bgen_index = InputFileHandler(bgen_index).get_file_handle()
+    covariate_file = InputFileHandler(covariate_file).get_file_handle()
+    pheno_file = InputFileHandler(pheno_file).get_file_handle()
+    fit_out_pred = InputFileHandler(fit_out_pred).get_file_handle()
+    InputFileHandler(fit_out_loco).get_file_handle()
+    for annotation_file in annotation_file:
+        InputFileHandler(annotation_file, download_now=True)
+    for mask_file in mask_file:
+        InputFileHandler(mask_file, download_now=True)
+    for setlist_file in setlist_file:
+        InputFileHandler(setlist_file, download_now=True)
+
+    # 4. Run step 2 of regenie
+    LOGGER.info("Running REGENIE step 2")
+    thread_utility = ThreadUtility(thread_factor=1)
+
+    for tarball_prefix in tarball_prefixes:
+
+        LOGGER.info(f"Running for the mask {tarball_prefix}")
+        # if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.tsv').exists():
+        if Path(f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt').exists():
+            thread_utility.launch_job(function=regenie_step_two,
+                                      inputs={
+                                          "tarball_prefix": tarball_prefix,
+                                          "chromosome": chromosome,
+                                          "bgen_file": bgen_file,
+                                          "bgen_sample": sample_file,
+                                          "samples_include": samples_include,
+                                          "covariate_file": covariate_file,
+                                          "pheno_file": pheno_file,
+                                          "pheno_column": pheno_column,
+                                          "fit_out_pred": fit_out_pred,
+                                          "is_binary": is_binary,
+                                          "annotation_file": f'{tarball_prefix}.{chromosome}.REGENIE.annotationFile.txt',
+                                          "mask_file": f'{tarball_prefix}.{chromosome}.REGENIE.maskfile.txt',
+                                          "setlist_file": f'{tarball_prefix}.{chromosome}.REGENIE.setListFile.txt',
+                                          "found_quantitative_covariates": found_quantitative_covariates,
+                                          "found_categorical_covariates": found_categorical_covariates,
+                                          "ignore_base_covariates": ignore_base_covariates,
+                                          "cmd_exec": cmd_exec
+                                      },
+                                      outputs=[
+                                          "tarball_prefix",
+                                          "chromosome",
+                                          "regenie_log",
+                                          "regenie_output"
+                                      ]
+                                      )
+    thread_utility.submit_and_monitor()
+
+    # collect results from thread_utility and export files
+    exporter = ExportFileHandler()
+    output = []
+    for result in thread_utility:
+        output.append({
+            "tarball_prefix": result["tarball_prefix"],
+            "finished_chromosome": result["chromosome"],
+            "current_log": exporter.export_files(result["regenie_log"]),
+            "regenie_output": exporter.export_files(result["regenie_output"])
+        })
+
+    return {
+        "output": output
+    }
+
+
+def regenie_step_two(tarball_prefix, chromosome, bgen_file, bgen_sample, samples_include,
+                     covariate_file, pheno_file, pheno_column, fit_out_pred, annotation_file,
+                     mask_file, setlist_file, found_quantitative_covariates,
+                     found_categorical_covariates, is_binary, ignore_base_covariates, cmd_exec) -> Tuple[Any, Any, Path, Path]:
+    """
+    Execution of REGENIE step 2 for a single chromosome
+
+    :param tarball_prefix: The prefix for the tarball files
+    :param chromosome: The chromosome/chunk to run
+    :param bgen_file: The bgen file to run
+    :param bgen_sample: The bgen sample file to run
+    :param samples_include: The samples to include
+    :param covariate_file: The covariate file to use
+    :param pheno_file: The phenotype file to use
+    :param pheno_column: The phenotype column to use
+    :param fit_out_pred: The prediction file from step 1
+    :param annotation_file: The annotation file
+    :param mask_file: The mask file
+    :param setlist_file: The setlist file
+    :param found_quantitative_covariates: The quantitative covariates to use
+    :param found_categorical_covariates: The categorical covariates to use
+    :param is_binary: Whether the phenotype is binary
+    :param ignore_base_covariates: Whether to ignore base covariates
+    :param cmd_exec: CommandExecutor to use
+
+    :return: The tarball prefix, chromosome, and log file
+    """
+
+    # Note – there is some issue with skato (in --vc-tests flag), so I have changed to skato-acat which works...?
+    cmd = f'regenie ' \
+          f'--step 2 ' \
+          f'--bgen {bgen_file} ' \
+          f'--sample {bgen_sample} ' \
+          f'--keep {samples_include} ' \
+          f'--covarFile {covariate_file} ' \
+          f'--phenoFile {pheno_file} ' \
+          f'--phenoCol {pheno_column} ' \
+          f'--pred {fit_out_pred} ' \
+          f'--anno-file {annotation_file} ' \
+          f'--mask-def {mask_file} ' \
+          f'--set-list {setlist_file} ' \
+          f'--aaf-bins 1 ' \
+          f'--vc-tests skato-acat,acato-full ' \
+          f'--bsize 400 ' \
+          f'--threads 1 ' \
+          f'--minMAC 1 ' \
+          f'--ref-first ' \
+          f'--maxCatLevels 110 ' \
+          f'--out {tarball_prefix}.{chromosome} '
+
+    cmd += define_covariate_string(found_quantitative_covariates,
+                                   found_categorical_covariates,
+                                   is_binary,
+                                   add_array=False,
+                                   ignore_base=ignore_base_covariates)
+
+    regenie_log = Path(f'{tarball_prefix}.{chromosome}.REGENIE_genes.log')
+    cmd_exec.run_cmd_on_docker(cmd, stdout_file=regenie_log)
+
+    regenie_output = Path(f'{tarball_prefix}.{chromosome}_{pheno_column}.regenie')
+
+    return tarball_prefix, chromosome, regenie_log, regenie_output
