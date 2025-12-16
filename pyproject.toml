@@ -29,3 +29,5 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/mrcepid-rap/burden"
 
+[tool.setuptools]
+packages = ["burden"]
