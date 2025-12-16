@@ -38,7 +38,7 @@ class BurdenProgramArgs(ProgramArgs):
 
 class BurdenAssociationPack(AssociationPack):
 
-    def __init__(self, association_pack: AssociationPack, tarball_prefixes: List[str],
+    def __init__(self, association_pack: AssociationPack, tarball_prefixes: List[Path],
                  bgen_dict: Dict[str, BGENInformation], run_marker_tests: bool, is_bolt_non_infinite: bool,
                  low_mac_list: Path, sparse_grm: Path, has_regenie_step_one: bool,
                  sparse_grm_sample: Path, genetic_filename: str, tarball_type: TarballType):
