@@ -43,7 +43,7 @@ class BurdenAssociationPack(AssociationPack):
                  low_mac_list: Path, sparse_grm: Path, has_regenie_step_one: bool,
                  sparse_grm_sample: Path, genetic_filename: str, tarball_type: TarballType):
         super().__init__(association_pack.is_binary, association_pack.sex, association_pack.threads,
-                         association_pack.pheno_names, association_pack.ignore_base_covariates,
+                         association_pack.pheno_names,
                          association_pack.found_quantitative_covariates, association_pack.found_categorical_covariates,
                          association_pack.cmd_executor, association_pack.final_covariates, association_pack.inclusion_samples,
                          association_pack.exclusion_samples, association_pack.transcript_index)

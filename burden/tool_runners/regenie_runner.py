@@ -53,7 +53,7 @@ class REGENIERunner(ToolRunner):
                                                                           finished_chromosome))
 
                 # Write a header for each logfile
-                regenie_step2_genes_writer.write(f'{tarball_prefix + "-" + finished_chromosome:{"-"}^{50}}')
+                regenie_step2_genes_writer.write(f'{str(tarball_prefix) + "-" + finished_chromosome:{"-"}^{50}}')
 
                 with current_log.open('r') as current_log_reader:
                     for line in current_log_reader:
@@ -107,8 +107,9 @@ class REGENIERunner(ToolRunner):
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
                                        self._association_pack.is_binary,
-                                       add_array=False,
-                                       ignore_base=self._association_pack.ignore_base_covariates)
+                                       add_array=True)
+
+        LOGGER.info(f'REGENIE Step 1 model: {cmd}')
 
         regenie_log = Path(f'{self._output_prefix}.REGENIE_step1.log')
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=regenie_log)
@@ -178,8 +179,7 @@ class REGENIERunner(ToolRunner):
                                     "setlist_file": setlist_files,
                                     "found_quantitative_covariates": self._association_pack.found_quantitative_covariates,
                                     "found_categorical_covariates": self._association_pack.found_categorical_covariates,
-                                    "is_binary": self._association_pack.is_binary,
-                                    "ignore_base_covariates": self._association_pack.ignore_base_covariates,
+                                    "is_binary": self._association_pack.is_binary
                                 },
                                 outputs=[
                                     "output"
@@ -297,8 +297,8 @@ def run_regenie_step2(
         chromosome: str, tarball_prefixes: List[str], samples_include: str,
         covariate_file: Path, pheno_file: Path, pheno_column: str, fit_out_pred: Path, fit_out_loco: Path,
         annotation_file: str, mask_file: str, setlist_file: str, is_binary: bool,
-        found_quantitative_covariates: List[str], found_categorical_covariates: List[str],
-        ignore_base_covariates: bool) -> Dict[str, Any]:
+        found_quantitative_covariates: List[str], found_categorical_covariates: List[str]
+        ) -> Dict[str, Any]:
     """
     A function to run REGENIE step 2 on a single chromosome
 
@@ -319,7 +319,6 @@ def run_regenie_step2(
     :param is_binary: Whether the phenotype is binary
     :param found_quantitative_covariates: Quantitative covariates to use
     :param found_categorical_covariates: Categorical covariates to use
-    :param ignore_base_covariates: Whether to ignore base covariates
 
     :return: The tarball prefix, finished chromosome, and log file
     """
@@ -370,7 +369,6 @@ def run_regenie_step2(
                                           "setlist_file": f'{tarball_prefix}.{chromosome}.REGENIE.setListFile.txt',
                                           "found_quantitative_covariates": found_quantitative_covariates,
                                           "found_categorical_covariates": found_categorical_covariates,
-                                          "ignore_base_covariates": ignore_base_covariates,
                                           "cmd_exec": cmd_exec
                                       },
                                       outputs=[
@@ -401,7 +399,7 @@ def run_regenie_step2(
 def regenie_step_two(tarball_prefix, chromosome, bgen_file, bgen_sample, samples_include,
                      covariate_file, pheno_file, pheno_column, fit_out_pred, annotation_file,
                      mask_file, setlist_file, found_quantitative_covariates,
-                     found_categorical_covariates, is_binary, ignore_base_covariates, cmd_exec) -> Tuple[Any, Any, Path, Path]:
+                     found_categorical_covariates, is_binary, cmd_exec) -> Tuple[Any, Any, Path, Path]:
     """
     Execution of REGENIE step 2 for a single chromosome
 
@@ -420,7 +418,6 @@ def regenie_step_two(tarball_prefix, chromosome, bgen_file, bgen_sample, samples
     :param found_quantitative_covariates: The quantitative covariates to use
     :param found_categorical_covariates: The categorical covariates to use
     :param is_binary: Whether the phenotype is binary
-    :param ignore_base_covariates: Whether to ignore base covariates
     :param cmd_exec: CommandExecutor to use
 
     :return: The tarball prefix, chromosome, and log file
@@ -451,8 +448,9 @@ def regenie_step_two(tarball_prefix, chromosome, bgen_file, bgen_sample, samples
     cmd += define_covariate_string(found_quantitative_covariates,
                                    found_categorical_covariates,
                                    is_binary,
-                                   add_array=False,
-                                   ignore_base=ignore_base_covariates)
+                                   add_array=False)
+
+    LOGGER.info(f'REGENIE Step 2 model: {cmd}')
 
     regenie_log = Path(f'{tarball_prefix}.{chromosome}.REGENIE_genes.log')
     cmd_exec.run_cmd_on_docker(cmd, stdout_file=regenie_log)

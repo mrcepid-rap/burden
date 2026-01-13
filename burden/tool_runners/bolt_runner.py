@@ -151,12 +151,11 @@ class BOLTRunner(ToolRunner):
         else:
             cmd += '--lmmInfOnly '
 
-        if not self._association_pack.ignore_base_covariates:
-            cmd += f'--covarCol=sex ' \
-                   f'--covarCol=batch ' \
-                   f'--qCovarCol=age ' \
-                   f'--qCovarCol=age_squared ' \
-                   f'--qCovarCol=PC{{1:10}} '
+        cmd += f'--covarCol=sex ' \
+               f'--covarCol=batch ' \
+               f'--qCovarCol=age ' \
+               f'--qCovarCol=age_squared ' \
+               f'--qCovarCol=PC{{1:10}} '
 
         if len(self._association_pack.found_quantitative_covariates) > 0:
             for covar in self._association_pack.found_quantitative_covariates:
@@ -164,6 +163,9 @@ class BOLTRunner(ToolRunner):
         if len(self._association_pack.found_categorical_covariates) > 0:
             for covar in self._association_pack.found_categorical_covariates:
                 cmd += f'--covarCol={covar} '
+
+        self._logger(f'BOLT model: {cmd}')
+
         bolt_log = Path(f'{self._output_prefix}.BOLT.log')
 
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
