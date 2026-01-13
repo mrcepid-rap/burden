@@ -12,6 +12,7 @@ For access to the test data, please contact one of the authors of the burden pac
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -145,15 +146,35 @@ def test_burden_tools(tool, expected_output, temporary_path):
     except AssertionError as e:
         diff_summary = []
         for col in stats.columns:
-            if not np.allclose(
+            # Check for numeric differences
+            if np.issubdtype(stats[col].dtype, np.number):
+                # Find indices where values are NOT close
+                is_close = np.isclose(
                     stats[col].fillna(np.nan),
                     result[col].fillna(np.nan),
                     equal_nan=True,
                     atol=1e-8,
-                    rtol=1e-5,
-            ):
-                diff_summary.append(col)
+                    rtol=1e-5
+                )
+
+                if not np.all(is_close):
+                    diff_summary.append(col)
+                    # Print the first 5 differences for this column to inspect them
+                    mismatched_indices = np.where(~is_close)[0]
+                    print(f"\n--- Numeric differences in column: {col} ---")
+                    comparison = pd.DataFrame({
+                        'Row_Index': mismatched_indices,
+                        'Expected': stats[col].iloc[mismatched_indices],
+                        'Actual': result[col].iloc[mismatched_indices]
+                    }).head(10)  # Show first 10 differences
+                    print(comparison.to_string(index=False))
+            else:
+                # For non-numeric columns
+                if not stats[col].equals(result[col]):
+                    diff_summary.append(col)
+                    print(f"\n--- String differences in column: {col} ---")
+
         pytest.fail(
             f"[{tool}] Value mismatch detected in columns: {diff_summary}\n"
-            f"Details:\n{str(e)}"
+            f"Review the STDOUT above for numeric comparison."
         )

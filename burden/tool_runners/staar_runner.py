@@ -87,7 +87,6 @@ class STAARRunner(ToolRunner):
                                           'phenofile': str(merged_cov_path),
                                           'phenotype': phenoname,
                                           'is_binary': self._association_pack.is_binary,
-                                          'ignore_base': self._association_pack.ignore_base_covariates,
                                           'found_quantitative_covariates': self._association_pack.found_quantitative_covariates,
                                           'found_categorical_covariates': self._association_pack.found_categorical_covariates,
                                           'sex': self._association_pack.sex,

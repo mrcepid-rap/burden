@@ -25,7 +25,6 @@ class GLMRunner(ToolRunner):
         null_model = linear_model_null(self._association_pack.final_covariates,
                                        self._association_pack.pheno_names[0],
                                        self._association_pack.is_binary,
-                                       self._association_pack.ignore_base_covariates,
                                        self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates)
 
