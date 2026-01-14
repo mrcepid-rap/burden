@@ -153,6 +153,7 @@ class BOLTRunner(ToolRunner):
 
         cmd += f'--covarCol=sex ' \
                f'--covarCol=batch ' \
+               f'--covarCol=array_batch ' \
                f'--qCovarCol=age ' \
                f'--qCovarCol=age_squared ' \
                f'--qCovarCol=PC{{1:10}} '
@@ -163,9 +164,6 @@ class BOLTRunner(ToolRunner):
         if len(self._association_pack.found_categorical_covariates) > 0:
             for covar in self._association_pack.found_categorical_covariates:
                 cmd += f'--covarCol={covar} '
-
-        self._logger(f'BOLT model: {cmd}')
-
         bolt_log = Path(f'{self._output_prefix}.BOLT.log')
 
         self._association_pack.cmd_executor.run_cmd_on_docker(cmd, stdout_file=bolt_log)
@@ -184,7 +182,7 @@ class BOLTRunner(ToolRunner):
         del bolt_table
 
         # Test what columns we have in the 'SNP' field so we can name them...
-        field_names = define_field_names_from_pandas(id_field=bolt_table_gene.iloc[0], default_fields=['ENST'])
+        field_names = define_field_names_from_pandas(id_field=bolt_table_gene['SNP'].iloc[0],default_fields=['ENST'])
         bolt_table_gene[field_names] = bolt_table_gene['SNP'].str.split("-", expand=True)
         bolt_table_gene = bolt_table_gene.drop(columns=['SNP', 'CHR', 'BP', 'ALLELE1', 'ALLELE0', 'GENPOS'])
 

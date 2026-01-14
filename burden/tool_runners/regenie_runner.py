@@ -106,8 +106,7 @@ class REGENIERunner(ToolRunner):
 
         cmd += define_covariate_string(self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates,
-                                       self._association_pack.is_binary,
-                                       add_array=True)
+                                       self._association_pack.is_binary)
 
         LOGGER.info(f'REGENIE Step 1 model: {cmd}')
 
@@ -447,8 +446,7 @@ def regenie_step_two(tarball_prefix, chromosome, bgen_file, bgen_sample, samples
 
     cmd += define_covariate_string(found_quantitative_covariates,
                                    found_categorical_covariates,
-                                   is_binary,
-                                   add_array=False)
+                                   is_binary)
 
     LOGGER.info(f'REGENIE Step 2 model: {cmd}')
 

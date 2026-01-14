@@ -185,7 +185,7 @@ class STAARRunner(ToolRunner):
                     launcher.launch_job(
                         function=multithread_staar_burden,
                         inputs={
-                            'tarball_prefix': tarball_prefix,
+                            'tarball_prefix': tarball_prefix.name,
                             'chromosome': chromosome,
                             'phenoname': phenoname,
                             'staar_null_model': null_model,
