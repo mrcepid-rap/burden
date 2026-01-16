@@ -151,13 +151,6 @@ class BOLTRunner(ToolRunner):
         else:
             cmd += '--lmmInfOnly '
 
-        if not self._association_pack.ignore_base_covariates:
-            cmd += f'--covarCol=sex ' \
-                   f'--covarCol=batch ' \
-                   f'--qCovarCol=age ' \
-                   f'--qCovarCol=age_squared ' \
-                   f'--qCovarCol=PC{{1:10}} '
-
         if len(self._association_pack.found_quantitative_covariates) > 0:
             for covar in self._association_pack.found_quantitative_covariates:
                 cmd += f'--qCovarCol={covar} '
@@ -182,7 +175,7 @@ class BOLTRunner(ToolRunner):
         del bolt_table
 
         # Test what columns we have in the 'SNP' field so we can name them...
-        field_names = define_field_names_from_pandas(id_field=bolt_table_gene.iloc[0], default_fields=['ENST'])
+        field_names = define_field_names_from_pandas(id_field=bolt_table_gene['SNP'].iloc[0],default_fields=['ENST'])
         bolt_table_gene[field_names] = bolt_table_gene['SNP'].str.split("-", expand=True)
         bolt_table_gene = bolt_table_gene.drop(columns=['SNP', 'CHR', 'BP', 'ALLELE1', 'ALLELE0', 'GENPOS'])
 
