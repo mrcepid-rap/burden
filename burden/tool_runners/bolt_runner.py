@@ -151,13 +151,6 @@ class BOLTRunner(ToolRunner):
         else:
             cmd += '--lmmInfOnly '
 
-        cmd += f'--covarCol=sex ' \
-               f'--covarCol=batch ' \
-               f'--covarCol=array_batch ' \
-               f'--qCovarCol=age ' \
-               f'--qCovarCol=age_squared ' \
-               f'--qCovarCol=PC{{1:10}} '
-
         if len(self._association_pack.found_quantitative_covariates) > 0:
             for covar in self._association_pack.found_quantitative_covariates:
                 cmd += f'--qCovarCol={covar} '
