@@ -99,20 +99,7 @@ class LoadModule(ModuleLoader):
 
 
     def _parse_options(self) -> BurdenProgramArgs:
-        """Parse command line options and return a BurdenProgramArgs object.
-
-        This method includes a safety bit to ensure covariate lists are not None
-        to prevent downstream iteration errors in the base class.
-        """
-        # Parse the raw args into a dictionary
-        parsed_dict = vars(self._parser.parse_args(self._split_options(self._input_args)))
-        # Ensure these are always iterables (lists)
-        if parsed_dict.get('categorical_covariates') is None:
-            parsed_dict['categorical_covariates'] = []
-        if parsed_dict.get('quantitative_covariates') is None:
-            parsed_dict['quantitative_covariates'] = []
-        # Return the typed object
-        return BurdenProgramArgs(**parsed_dict)
+        return BurdenProgramArgs(**vars(self._parser.parse_args(self._split_options(self._input_args))))
 
     def _ingest_data(self, parsed_options: BurdenProgramArgs) -> BurdenAssociationPack:
         ingested_data = burden_ingester.BurdenIngestData(parsed_options)
