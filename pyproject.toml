@@ -1,10 +1,11 @@
 [build-system]
 requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "burden"
 version = "2.0.0"
-description = ""
+description = "Burden analysis pipeline"
 authors = [
   { name = "Eugene Gardner", email = "eugene.gardner@mrc-epid.cam.ac.uk" },
       { name = "Alish Palmos", email = "alish.palmos@insmed.com" }
