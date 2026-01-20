@@ -166,7 +166,7 @@ class REGENIERunner(ToolRunner):
                                         'sample'].get_input_str(),
                                     "bgen_index": self._association_pack.bgen_dict[chunk]['index'].get_input_str(),
                                     "chromosome": chunk,
-                                    "tarball_prefixes": self._association_pack.tarball_prefixes,
+                                    "tarball_prefixes": [str(p) for p in self._association_pack.tarball_prefixes],
                                     "samples_include": samples_include,
                                     "covariate_file": phenotype_file,
                                     "pheno_file": phenotype_file,
