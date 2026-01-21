@@ -53,7 +53,7 @@ class REGENIERunner(ToolRunner):
                                                                           finished_chromosome))
 
                 # Write a header for each logfile
-                regenie_step2_genes_writer.write(f'{tarball_prefix.name}-{finished_chromosome:-^50}\n')
+                regenie_step2_genes_writer.write(f'{tarball_prefix}-{finished_chromosome:-^50}\n')
 
                 with current_log.open('r') as current_log_reader:
                     for line in current_log_reader:
