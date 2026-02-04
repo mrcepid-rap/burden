@@ -107,7 +107,7 @@ class GLMRunner(ToolRunner):
                     'null_model_dxfile': dnanexus_null_model,
                     'transcripts_table_dxfile': dnanexus_transcripts_table,
                     "tarball_prefixes": [str(p) for p in self._association_pack.tarball_prefixes],
-                    'tarball_type': self._association_pack.tarball_type,
+                    'tarball_type': str(self._association_pack.tarball_type),
                     'is_binary': self._association_pack.is_binary,
                     'threads': self._association_pack.threads
                 },
