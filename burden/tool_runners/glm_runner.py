@@ -1,5 +1,5 @@
 """Execute gene-level GLM runs and downstream plotting for burden analyses."""
-
+import os
 import pickle
 from pathlib import Path
 from typing import List, Any, Dict
@@ -148,9 +148,13 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
     :return: A dictionary containing the DNAnexus file ID for the pickled list of gene results.
     """
     # download genetic data
-    InputFileHandler(bgen_file, download_now=True)
-    InputFileHandler(bgen_index, download_now=True)
-    InputFileHandler(bgen_sample, download_now=True)
+    InputFileHandler(bgen_file, download_now=True).get_file_handle()
+    InputFileHandler(bgen_index, download_now=True).get_file_handle()
+    InputFileHandler(bgen_sample, download_now=True).get_file_handle()
+
+    # print all files in the current directory
+    for file in os.listdir('.'):
+        print(file)
 
     # Load the null model
     null_model_file = InputFileHandler(null_model_dxfile).get_file_handle()
