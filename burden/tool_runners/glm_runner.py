@@ -26,10 +26,9 @@ class GLMRunner(ToolRunner):
 
         This method coordinates the entire GLM workflow, including:
         1. Running the null linear model.
-        2. Loading genetic data for each tarball prefix.
-        3. Launching parallel subjobs to run gene-level GLMs.
-        4. Processing and annotating the results.
-        5. Generating Manhattan plots.
+        2. Launching parallel subjobs to run gene-level GLMs for each chromosome.
+        3. Processing and annotating the results.
+        4. Generating Manhattan plots.
         """
 
         # 1. Do setup for the linear models & get the null model
@@ -40,35 +39,19 @@ class GLMRunner(ToolRunner):
                                        self._association_pack.found_quantitative_covariates,
                                        self._association_pack.found_categorical_covariates)
 
-        # 2. Load the tarballs INTO separate genotypes dictionaries
-        self._logger.info("Loading Linear Model genotypes")
-        loader_thread_utility = ThreadUtility(threads=self._association_pack.threads,
-                                              thread_factor=2,
-                                              incrementor=10)
-
-        for tarball_prefix in self._association_pack.tarball_prefixes:
-            self._logger.debug("Scheduling genotype load for %s", tarball_prefix)
-            loader_thread_utility.launch_job(load_linear_model_genetic_data,
-                                             inputs={'tarball_prefix': tarball_prefix,
-                                                     'tarball_type': self._association_pack.tarball_type},
-                                             outputs=['tarball_prefix', 'genotype_dict'])
-
-        loader_thread_utility.submit_and_monitor()
-        genotype_results = list(loader_thread_utility)
-
-        # 3. Iterate through every model / gene pair and run a GLM in parallel subjobs
+        # 2. Launch a subjob for each chromosome
         self._logger.info("Submitting Linear Models to subjobs")
-        completed_models = self._multithread_glm_subjobs(null_model, genotype_results)
+        all_completed_models = self._launch_glm_jobs(null_model)
 
-        # 4. Annotate unformatted results and print final tabular outputs
+        # 3. Annotate unformatted results and print final tabular outputs
         self._logger.info("Processing Linear Model results")
         output_path = Path(f'{self._output_prefix}.genes.GLM.stats.tsv')
-        self._outputs.extend(process_model_outputs(completed_models,
+        self._outputs.extend(process_model_outputs(all_completed_models,
                                                    output_path,
                                                    self._association_pack.tarball_type,
                                                    self._transcripts_table))
 
-        # 5. Generate Manhattan Plots
+        # 4. Generate Manhattan Plots
         plot_dir = Path(f'{self._output_prefix}_plots')
         plot_dir.mkdir(parents=True, exist_ok=True)
         self._outputs.append(plot_dir)
@@ -93,19 +76,12 @@ class GLMRunner(ToolRunner):
                                                      sig_threshold=1E-6)
                 manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.GLM.png')
 
-    def _multithread_glm_subjobs(self, null_model: Any, genotype_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Launch parallel subjobs to run gene-level GLMs for each tarball prefix.
+    def _launch_glm_jobs(self, null_model: object) -> List[Dict[str, Any]]:
+        """Launch a subjob for each chromosome to run GLM associations.
 
-        This method serializes the null model and genetic data, exports them to DNAnexus,
-        and launches subjobs. It then collects and aggregates the results from all subjobs.
-
-        :param null_model: The fitted null linear model object.
-        :param genotype_results: A list of dictionaries, where each dictionary contains
-                                 'tarball_prefix' and 'genotype_dict' (pandas DataFrame)
-                                 for a specific tarball.
-        :return: A list of dictionaries, where each dictionary represents the results for a gene.
+        :param null_model: A pre-computed null model to use for association testing.
+        :return: A list of dictionaries, where each dictionary is a completed model.
         """
-        # Set up the job launcher
         launcher = joblauncher_factory(download_on_complete=True)
         exporter = ExportFileHandler(delete_on_upload=False)
 
@@ -115,22 +91,25 @@ class GLMRunner(ToolRunner):
             pickle.dump(null_model, null_writer)
         dnanexus_null_model = exporter.export_files(null_model_path)
 
-        # Launch a subjob for each tarball prefix
-        for result in genotype_results:
-            # Serialize the genotype dictionary for this tarball prefix
-            tarball_prefix = result['tarball_prefix']
-            genotype_dict = result['genotype_dict']
-            genotype_path = Path(f"{tarball_prefix}.genotypes.pkl")
-            genotype_dict.to_pickle(genotype_path)
-            dnanexus_genotype_dict = exporter.export_files(genotype_path)
+        # And the transcripts table
+        transcripts_table_path = Path("transcripts_table.tsv")
+        self._transcripts_table.to_csv(transcripts_table_path, sep='\t', index=True)
+        dnanexus_transcripts_table = exporter.export_files(transcripts_table_path)
 
+        # And the list of tarballs
+        tarball_prefixes = [p.name for p in self._association_pack.tarball_prefixes]
+
+        for chromosome in self._association_pack.bgen_dict:
             launcher.launch_job(
-                function=run_glm_gene_subjob,
+                function=run_glm_chromosome_subjob,
                 inputs={
+                    'chromosome': chromosome,
                     'null_model_dxfile': dnanexus_null_model,
-                    'genotype_dict_dxfile': dnanexus_genotype_dict,
-                    'tarball_prefix': tarball_prefix,
+                    'transcripts_table_dxfile': dnanexus_transcripts_table,
+                    "tarball_prefixes": [str(p) for p in self._association_pack.tarball_prefixes],
+                    'tarball_type': self._association_pack.tarball_type,
                     'is_binary': self._association_pack.is_binary,
+                    'threads': self._association_pack.threads
                 },
                 outputs=['results_file']
             )
@@ -144,23 +123,22 @@ class GLMRunner(ToolRunner):
             with result_file.open('rb') as result_reader:
                 gene_dicts = pickle.load(result_reader)
                 completed_models.extend(gene_dicts)
-
         return completed_models
 
 
-@dxpy.entry_point('run_glm_gene_subjob')
-def run_glm_gene_subjob(null_model_dxfile: Dict[str, Any], genotype_dict_dxfile: Dict[str, Any], tarball_prefix: str,
-                        is_binary: bool) -> Dict[str, Any]:
-    """A subjob to run GLM models for a single tarball prefix.
+@dxpy.entry_point('run_glm_chromosome_subjob')
+def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any],
+                              transcripts_table_dxfile: Dict[str, Any], tarball_prefixes: List[str], tarball_type: str,
+                              is_binary: bool, threads: int) -> Dict[str, Any]:
+    """A subjob to run GLM models for a single chromosome across all tarballs.
 
-    This function is executed as a DNAnexus entry point. It deserializes the null model
-    and genetic data for a specific tarball prefix, runs gene-level GLMs for all genes
-    within that prefix, and then serializes and exports the results.
-
+    :param chromosome: Chromosome to process.
     :param null_model_dxfile: DNAnexus file ID for the pickled null model.
-    :param genotype_dict_dxfile: DNAnexus file ID for the pickled genotype dictionary (pandas DataFrame).
-    :param tarball_prefix: The prefix for the current tarball (used as mask_name).
+    :param transcripts_table_dxfile: DNAnexus file ID for the transcripts table.
+    :param tarball_prefixes: A list of tarball prefixes to process.
+    :param tarball_type: The type of tarballs to load.
     :param is_binary: Boolean indicating if the phenotype is binary.
+    :param threads: Number of threads to use for parallel processing.
     :return: A dictionary containing the DNAnexus file ID for the pickled list of gene results.
     """
 
@@ -169,28 +147,45 @@ def run_glm_gene_subjob(null_model_dxfile: Dict[str, Any], genotype_dict_dxfile:
     with null_model_file.open('rb') as null_reader:
         null_model = pickle.load(null_reader)
 
-    # Load the genotype dictionary
-    genotype_dict_file = InputFileHandler(genotype_dict_dxfile).get_file_handle()
-    genotype_dict = pd.read_pickle(genotype_dict_file)
+    # Load transcripts table
+    transcripts_table_file = InputFileHandler(transcripts_table_dxfile).get_file_handle()
+    transcripts_table = pd.read_csv(transcripts_table_file, sep='\t', index_col=0)
+
+    # Get genes for the current chromosome
+    genes_on_chrom = transcripts_table[transcripts_table['chrom'] == chromosome].index
+
+    # Load genotype data in parallel for all tarballs
+    loader_thread_utility = ThreadUtility(threads=threads, thread_factor=2, incrementor=10)
+    for tarball_prefix in tarball_prefixes:
+        loader_thread_utility.launch_job(load_linear_model_genetic_data,
+                                         inputs={'tarball_prefix': Path(tarball_prefix),
+                                                 'tarball_type': tarball_type,
+                                                 'bgen_prefix': chromosome},
+                                         outputs=['tarball_prefix', 'genotype_dict'])
+    loader_thread_utility.submit_and_monitor()
 
     # Run linear models for all genes in this chunk
-    runner_thread_utility = ThreadUtility()
+    runner_thread_utility = ThreadUtility(threads=threads)
+    for result in loader_thread_utility:
+        tarball_prefix = result['tarball_prefix']
+        genotype_dict = result['genotype_dict']
 
-    for gene in genotype_dict.index.levels[0]:
-        runner_thread_utility.launch_job(run_linear_model,
-                                         inputs={'linear_model_pack': null_model,
-                                                 'genotype_table': genotype_dict,
-                                                 'gene': gene,
-                                                 'mask_name': tarball_prefix,
-                                                 'is_binary': is_binary},
-                                         outputs=['gene_dict'])
+        genes_to_run = genotype_dict.index.levels[0]
+
+        for gene in genes_to_run:
+            runner_thread_utility.launch_job(run_linear_model,
+                                             inputs={'linear_model_pack': null_model,
+                                                     'genotype_table': genotype_dict,
+                                                     'gene': gene,
+                                                     'mask_name': tarball_prefix,
+                                                     'is_binary': is_binary},
+                                             outputs=['gene_dict'])
 
     runner_thread_utility.submit_and_monitor()
-
     completed_models = [result['gene_dict'] for result in runner_thread_utility]
 
     # Save results to a file and export
-    results_path = Path("glm_results.pkl")
+    results_path = Path(f"glm_results.{chromosome}.pkl")
     with results_path.open('wb') as results_writer:
         pickle.dump(completed_models, results_writer)
 
