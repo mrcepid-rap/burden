@@ -4,8 +4,9 @@ from typing import List, Tuple, Dict, Any
 
 import dxpy
 import pandas as pd
+from bgen import BgenReader
 from general_utilities.association_resources import define_field_names_from_tarball_prefix, \
-    bgzip_and_tabix, LOGGER
+    bgzip_and_tabix, LOGGER, get_chromosome_from_bgen
 from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
 from general_utilities.job_management.command_executor import build_default_command_executor
@@ -327,11 +328,12 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     # 2. run with the addition of a filtered sample file and a flag (if exists) that can be used to filter
     # 3. run with a plink filtering command (worst case scenario) to filter the bgen file by sample inclusion
 
-    # chromsomes should be stripped of
-    # if chromosome.startswith("chr"):
-    #     chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
-    # else:
-    #     chromosome_num = chromosome
+    # SAIGE wants to know the chromosome that we are working with
+    chromosome_num = chromosome.split('_')[0]
+    with BgenReader(bgen_file, sample_path=sample_file, delay_parsing=True) as bgen_reader:
+        first_variant = next(iter(bgen_reader))
+        bgen_chrom = first_variant.chrom
+        chromosome_saige = get_chromosome_from_bgen(bgen_chrom, chromosome_num)
 
     # See the README.md for more information on these parameters
     cmd = f'step2_SPAtests.R ' \
@@ -348,7 +350,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
           f'--is_output_moreDetails=TRUE ' \
           f'--maxMAF_in_groupTest=0.5 ' \
           f'--maxMissing=1 ' \
-          f'--chrom={chromosome} ' \
+          f'--chrom={chromosome_saige} ' \
           f'--annotation_in_groupTest=foo '
 
     if is_binary:
