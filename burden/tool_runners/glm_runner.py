@@ -11,10 +11,9 @@ from general_utilities.import_utils.file_handlers.input_file_handler import Inpu
 from general_utilities.job_management.joblauncher_factory import joblauncher_factory
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.linear_model.linear_model import linear_model_null, \
-    load_linear_model_genetic_data, run_linear_model
+    load_linear_model_genetic_data, run_linear_model, TarballType
 from general_utilities.linear_model.proccess_model_output import process_model_outputs
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
-
 from burden.tool_runners.tool_runner import ToolRunner
 
 
@@ -96,9 +95,6 @@ class GLMRunner(ToolRunner):
         self._transcripts_table.to_csv(transcripts_table_path, sep='\t', index=True)
         dnanexus_transcripts_table = exporter.export_files(transcripts_table_path)
 
-        # And the list of tarballs
-        tarball_prefixes = [p.name for p in self._association_pack.tarball_prefixes]
-
         for chromosome in self._association_pack.bgen_dict:
             launcher.launch_job(
                 function=run_glm_chromosome_subjob,
@@ -107,7 +103,7 @@ class GLMRunner(ToolRunner):
                     'null_model_dxfile': dnanexus_null_model,
                     'transcripts_table_dxfile': dnanexus_transcripts_table,
                     "tarball_prefixes": [str(p) for p in self._association_pack.tarball_prefixes],
-                    'tarball_type': str(self._association_pack.tarball_type),
+                    'tarball_type': self._association_pack.tarball_type.value,
                     'is_binary': self._association_pack.is_binary,
                     'threads': self._association_pack.threads
                 },
@@ -154,12 +150,15 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
     # Get genes for the current chromosome
     genes_on_chrom = transcripts_table[transcripts_table['chrom'] == chromosome].index
 
+    # Convert the string back to the Enum object required by load_linear_model_genetic_data
+    tarball_type_enum = TarballType(tarball_type)
+
     # Load genotype data in parallel for all tarballs
     loader_thread_utility = ThreadUtility(threads=threads, thread_factor=2, incrementor=10)
     for tarball_prefix in tarball_prefixes:
         loader_thread_utility.launch_job(load_linear_model_genetic_data,
                                          inputs={'tarball_prefix': Path(tarball_prefix),
-                                                 'tarball_type': tarball_type,
+                                                 'tarball_type': tarball_type_enum,
                                                  'bgen_prefix': chromosome},
                                          outputs=['tarball_prefix', 'genotype_dict'])
     loader_thread_utility.submit_and_monitor()
