@@ -330,23 +330,46 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
 
     # SAIGE wants to know the chromosome that we are working with
     chromosome_num = chromosome.split('_')[0]
+
     with BgenReader(bgen_file, sample_path=sample_file, delay_parsing=True) as bgen_reader:
+        # Get the first variant
         first_variant = next(iter(bgen_reader))
+
+        # Extract the variant ID string
+        variant_id = first_variant.rsid if first_variant.rsid != "." else first_variant.id
+
+        # Determine the delimiter (check for underscore vs colon)
+        target_delimiter = "_" if "_" in variant_id else ":"
+        wrong_delimiter = ":" if target_delimiter == "_" else "_"
+
         bgen_chrom = first_variant.chrom
         chromosome_saige = get_chromosome_from_bgen(bgen_chrom, chromosome_num)
 
-    # See the README.md for more information on these parameters
+    # 2. Update the group file immediately
+    # Using your original file naming convention
+    group_in = f"{tarball_prefix}.{chromosome}.SAIGE.groupFile.txt"
+    group_out = f"{tarball_prefix}.{chromosome}.SAIGE.groupFile.fixed.txt"
+
+    with open(group_in, 'r') as f_in, open(group_out, 'w') as f_out:
+        for line in f_in:
+            # Swap the delimiters so the groupFile matches the BGEN variant IDs
+            fixed_line = line.replace(wrong_delimiter, target_delimiter)
+            f_out.write(fixed_line)
+
+    print(f"Group file updated to use '{target_delimiter}' to match BGEN.")
+
+    # 3. Construct the command - updated --groupFile to use the fixed version
     cmd = f'step2_SPAtests.R ' \
           f'--bgenFile={bgen_file} ' \
           f'--bgenFileIndex={bgen_index} ' \
           f'--sampleFile={sample_file} ' \
-          f'--AlleleOrder=alt-first ' \
+          f'--AlleleOrder=ref-first ' \
           f'--GMMATmodelFile={gmmatmodelfile} ' \
           f'--sparseGRMFile={sparsegrmfile} ' \
           f'--sparseGRMSampleIDFile={sparsegrmsampleidfile} ' \
           f'--LOCO=FALSE ' \
           f'--SAIGEOutputFile={tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt ' \
-          f'--groupFile={tarball_prefix}.{chromosome}.SAIGE.groupFile.txt ' \
+          f'--groupFile={group_out} ' \
           f'--is_output_moreDetails=TRUE ' \
           f'--maxMAF_in_groupTest=0.5 ' \
           f'--maxMissing=1 ' \
@@ -354,7 +377,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
           f'--annotation_in_groupTest=foo '
 
     if is_binary:
-        cmd = cmd + '--is_Firth_beta=TRUE'
+        cmd = cmd + ' --is_Firth_beta=TRUE'
 
     saige_log_file = Path(f'{tarball_prefix}.{chromosome}.SAIGE_step2.log')
     cmd_exec.run_cmd_on_docker(cmd, stdout_file=saige_log_file, print_cmd=True)
