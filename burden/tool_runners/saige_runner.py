@@ -328,10 +328,10 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     # 3. run with a plink filtering command (worst case scenario) to filter the bgen file by sample inclusion
 
     # chromsomes should be stripped of
-    if chromosome.startswith("chr"):
-        chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
-    else:
-        chromosome_num = chromosome
+    # if chromosome.startswith("chr"):
+    #     chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
+    # else:
+    #     chromosome_num = chromosome
 
     # See the README.md for more information on these parameters
     cmd = f'step2_SPAtests.R ' \
@@ -348,7 +348,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
           f'--is_output_moreDetails=TRUE ' \
           f'--maxMAF_in_groupTest=0.5 ' \
           f'--maxMissing=1 ' \
-          f'--chrom={chromosome_num} ' \
+          f'--chrom={chromosome} ' \
           f'--annotation_in_groupTest=foo '
 
     if is_binary:
