@@ -42,7 +42,7 @@ class SAIGERunner(ToolRunner):
                 completed_gene_tables.append(self._process_saige_output(tarball_prefix, finished_chromosome))
 
                 # Write a header for each file
-                saige_step2_genes_writer.write(f'{tarball_prefix + "-" + finished_chromosome:{"-"}^{50}}')
+                saige_step2_genes_writer.write(f'{str(tarball_prefix) + "-" + finished_chromosome:{"-"}^{50}}')
 
                 with current_log.open('r') as current_log_reader:
                     for line in current_log_reader:
@@ -95,15 +95,8 @@ class SAIGERunner(ToolRunner):
             cmd = cmd + f'--traitType=quantitative '
 
         # Manage covariates
-        if self._association_pack.ignore_base_covariates:
-            all_covariates = []
-            cat_covars = []
-        else:
-            all_covariates = [f'PC{PC}' for PC in range(1, 11)] + ['age', 'age_squared', 'batch']
-            if self._association_pack.sex == 2:
-                all_covariates.append('sex')
-            cat_covars = ['batch']
-
+        all_covariates = []
+        cat_covars = []
         all_covariates.extend(self._association_pack.found_quantitative_covariates)
         all_covariates.extend(self._association_pack.found_categorical_covariates)
         cat_covars.extend(self._association_pack.found_categorical_covariates)
@@ -134,7 +127,7 @@ class SAIGERunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
 
             # make a list of the setlist files for this chromosome
-            group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
+            group_files = [f for f in Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt') if not f.name.startswith('._')]
             if not group_files:
                 continue  # skip chromosomes with no group file
 
@@ -176,7 +169,7 @@ class SAIGERunner(ToolRunner):
 
     def _process_saige_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
         # Load the raw table
-        saige_table = pd.read_csv(tarball_prefix + "." + chromosome + ".SAIGE_OUT.SAIGE.gene.txt", sep='\t')
+        saige_table = pd.read_csv(f"{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt", sep='\t')
         saige_table = saige_table.rename(columns={'Region': 'ENST'})
         saige_table = saige_table.drop(columns=['Group', 'max_MAF'])
 
@@ -260,21 +253,6 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     sparsegrmsampleidfile = InputFileHandler(sparsegrmsampleidfile).get_file_handle()
     for group_file in group_files:
         group_file = InputFileHandler(group_file, download_now=True).get_file_handle()
-
-        # TODO: remove this - need to fix it in collapsevariants
-        # --- FIX: normalize variant IDs from ':' to '_' for BGEN matching ---
-        group_path = Path(group_file)
-        tmp_path = group_path.with_suffix(group_path.suffix + ".tmp")
-        with group_path.open('r') as infile, tmp_path.open('w') as outfile:
-            for line in infile:
-                parts = line.rstrip('\n').split('\t')
-                if len(parts) > 2:
-                    for i in range(2, len(parts)):
-                        parts[i] = parts[i].replace(':', '_')
-                outfile.write('\t'.join(parts) + '\n')
-        tmp_path.replace(group_path)  # overwrite original in place
-        LOGGER.info(f"Fixed variant delimiters in {group_path.name}")
-        # --- END FIX ---
 
     # 4. Run step 2 of SAIGE
     LOGGER.info("Running SAIGE step 2")
@@ -376,7 +354,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     if is_binary:
         cmd = cmd + '--is_Firth_beta=TRUE'
 
-    saige_log_file = Path(f'*.SAIGE_step2.log')
+    saige_log_file = Path(f'{tarball_prefix}.{chromosome}.SAIGE_step2.log')
     cmd_exec.run_cmd_on_docker(cmd, stdout_file=saige_log_file, print_cmd=True)
 
     saige_output = Path(f'{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt')
