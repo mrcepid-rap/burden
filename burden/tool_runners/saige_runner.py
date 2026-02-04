@@ -145,7 +145,7 @@ class SAIGERunner(ToolRunner):
                     'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
                     'sample_file':self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
                     'chromosome': chromosome,
-                    "tarball_prefixes": self._association_pack.tarball_prefixes,
+                    "tarball_prefixes": [str(p) for p in self._association_pack.tarball_prefixes],
                     'gmmatmodelfile': gmmatmodelfile,
                     'sparsegrmfile': sparsegrmfile,
                     'sparsegrmsampleidfile': sparsegrmsampleidfile,
