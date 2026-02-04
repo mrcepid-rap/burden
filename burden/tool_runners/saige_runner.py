@@ -340,7 +340,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
           f'--bgenFile={bgen_file} ' \
           f'--bgenFileIndex={bgen_index} ' \
           f'--sampleFile={sample_file} ' \
-          f'--AlleleOrder=ref-first ' \
+          f'--AlleleOrder=alt-first ' \
           f'--GMMATmodelFile={gmmatmodelfile} ' \
           f'--sparseGRMFile={sparsegrmfile} ' \
           f'--sparseGRMSampleIDFile={sparsegrmsampleidfile} ' \
