@@ -14,6 +14,7 @@ from general_utilities.linear_model.linear_model import linear_model_null, \
     load_linear_model_genetic_data, run_linear_model, TarballType
 from general_utilities.linear_model.proccess_model_output import process_model_outputs
 from general_utilities.plot_lib.manhattan_plotter import ManhattanPlotter
+
 from burden.tool_runners.tool_runner import ToolRunner
 
 
@@ -96,6 +97,8 @@ class GLMRunner(ToolRunner):
         dnanexus_transcripts_table = exporter.export_files(transcripts_table_path)
 
         for chromosome in self._association_pack.bgen_dict:
+            # set the chunk that we are working with
+            working_chunk = self._association_pack.bgen_dict[chromosome]
             launcher.launch_job(
                 function=run_glm_chromosome_subjob,
                 inputs={
@@ -105,7 +108,10 @@ class GLMRunner(ToolRunner):
                     "tarball_prefixes": [str(p) for p in self._association_pack.tarball_prefixes],
                     'tarball_type': self._association_pack.tarball_type.value,
                     'is_binary': self._association_pack.is_binary,
-                    'threads': self._association_pack.threads
+                    'threads': self._association_pack.threads,
+                    'bgen_file': working_chunk['bgen'].get_input_str(),
+                    'bgen_index': working_chunk['index'].get_input_str(),
+                    'bgen_sample': working_chunk['sample'].get_input_str(),
                 },
                 outputs=['results_file']
             )
@@ -125,6 +131,7 @@ class GLMRunner(ToolRunner):
 @dxpy.entry_point('run_glm_chromosome_subjob')
 def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any],
                               transcripts_table_dxfile: Dict[str, Any], tarball_prefixes: List[str], tarball_type: str,
+                              bgen_file: str, bgen_index: str, bgen_sample: str,
                               is_binary: bool, threads: int) -> Dict[str, Any]:
     """A subjob to run GLM models for a single chromosome across all tarballs.
 
@@ -133,10 +140,17 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
     :param transcripts_table_dxfile: DNAnexus file ID for the transcripts table.
     :param tarball_prefixes: A list of tarball prefixes to process.
     :param tarball_type: The type of tarballs to load.
+    :param bgen_file: file ID for the BGEN file.
+    :param bgen_index: file ID for the BGEN index.
+    :param bgen_sample: file ID for the BGEN sample file.
     :param is_binary: Boolean indicating if the phenotype is binary.
     :param threads: Number of threads to use for parallel processing.
     :return: A dictionary containing the DNAnexus file ID for the pickled list of gene results.
     """
+    # download genetic data
+    InputFileHandler(bgen_file, download_now=True)
+    InputFileHandler(bgen_index, download_now=True)
+    InputFileHandler(bgen_sample, download_now=True)
 
     # Load the null model
     null_model_file = InputFileHandler(null_model_dxfile).get_file_handle()
