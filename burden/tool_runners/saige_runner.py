@@ -78,6 +78,7 @@ class SAIGERunner(ToolRunner):
         # there are too few low MAC variants in the genotype files to perform this step accurately. The SAIGE
         # documentation includes this step, but I am very unsure how it works...
         cmd = f'step1_fitNULLGLMM.R ' \
+              f'--plinkFile={self._association_pack.genetic_filename} ' \
               f'--phenoFile={phenofile} ' \
               f'--phenoCol={self._association_pack.pheno_names[0]} ' \
               f'--isCovariateTransform=FALSE ' \
@@ -89,7 +90,7 @@ class SAIGERunner(ToolRunner):
               f'--LOCO=FALSE ' \
               f'--skipModelFitting=FALSE ' \
               f'--useSparseGRMtoFitNULL=TRUE ' \
-              f'--skipVarianceRatioEstimation=TRUE '
+              f'--skipVarianceRatioEstimation=FALSE '
         if self._association_pack.is_binary:
             cmd = cmd + f'--traitType=binary '
         else:
@@ -351,6 +352,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
           f'--is_output_moreDetails=TRUE ' \
           f'--maxMAF_in_groupTest=0.5 ' \
           f'--minMAC=0.5 ' \
+          f'--minMAF=0 ' \
           f'--maxMissing=1 ' \
           f'--chrom={chromosome_saige} ' \
           f'--annotation_in_groupTest=foo '
