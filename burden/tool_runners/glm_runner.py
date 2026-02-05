@@ -1,5 +1,4 @@
 """Execute gene-level GLM runs and downstream plotting for burden analyses."""
-import os
 import pickle
 from pathlib import Path
 from typing import List, Any, Dict
@@ -83,7 +82,12 @@ class GLMRunner(ToolRunner):
             self._logger.warning("No valid models found after filtering.")
 
     def _launch_glm_jobs(self, null_model: object) -> List[Dict[str, Any]]:
-        """Launch a subjob for each chromosome to run GLM associations."""
+        """
+        Launches a subjob for each chromosome to run GLM associations in parallel.
+
+        :param null_model: The fitted null linear model used for association testing.
+        :return: List of dictionaries containing results for each completed gene-level model.
+        """
         launcher = joblauncher_factory(download_on_complete=True)
         exporter = ExportFileHandler(delete_on_upload=False)
 
@@ -92,11 +96,6 @@ class GLMRunner(ToolRunner):
         with null_model_path.open('wb') as null_writer:
             pickle.dump(null_model, null_writer)
         dnanexus_null_model = exporter.export_files(null_model_path)
-
-        # And the transcripts table
-        transcripts_table_path = Path("transcripts_table.tsv")
-        self._transcripts_table.to_csv(transcripts_table_path, sep='\t', index=True)
-        dnanexus_transcripts_table = exporter.export_files(transcripts_table_path)
 
         for chromosome in self._association_pack.bgen_dict:
 
@@ -122,7 +121,6 @@ class GLMRunner(ToolRunner):
                 inputs={
                     'chromosome': chromosome,
                     'null_model_dxfile': dnanexus_null_model,
-                    'transcripts_table_dxfile': dnanexus_transcripts_table,
                     "tarball_prefixes": [str(p) for p in self._association_pack.tarball_prefixes],
                     'tarball_type': self._association_pack.tarball_type.value,
                     'is_binary': self._association_pack.is_binary,
@@ -148,10 +146,24 @@ class GLMRunner(ToolRunner):
 
 @dxpy.entry_point('run_glm_chromosome_subjob')
 def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any],
-                              transcripts_table_dxfile: Dict[str, Any], tarball_prefixes: List[str], tarball_type: str,
+                              tarball_prefixes: List[str], tarball_type: str,
                               bolt_bgen: List[Any], bolt_bgen_index: List[Any], bolt_bgen_sample: List[Any],
                               is_binary: bool, threads: int) -> Dict[str, Any]:
+    """
+    Runs a GWAS subjob for a chromosome using parallel processing and BOLT genotype data.
+    Serializes and exports results.
 
+    :param chromosome: Chromosome identifier.
+    :param null_model_dxfile: File handle or location of the null model.
+    :param tarball_prefixes: List of genotype tarball prefixes.
+    :param tarball_type: String of tarball type.
+    :param bolt_bgen: List of BGEN files for the chromosome.
+    :param bolt_bgen_index: List of BGEN index files.
+    :param bolt_bgen_sample: List of BGEN sample files.
+    :param is_binary: True if binary analysis, else continuous.
+    :param threads: Number of parallel threads.
+    :return: Dict with exported results file reference.
+    """
     # Download BOLT Data (Fix: iterate because input is a list)
     for f in bolt_bgen:
         InputFileHandler(f, download_now=True).get_file_handle()
@@ -164,10 +176,6 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
     null_model_file = InputFileHandler(null_model_dxfile).get_file_handle()
     with null_model_file.open('rb') as null_reader:
         null_model = pickle.load(null_reader)
-
-    # Load transcripts table
-    transcripts_table_file = InputFileHandler(transcripts_table_dxfile).get_file_handle()
-    transcripts_table = pd.read_csv(transcripts_table_file, sep='\t', index_col=0)
 
     # Convert the string back to the Enum object required by load_linear_model_genetic_data
     tarball_type_enum = TarballType(tarball_type)
