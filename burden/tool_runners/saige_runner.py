@@ -1,4 +1,4 @@
-import re
+from pathlib import Path
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
 
@@ -128,7 +128,8 @@ class SAIGERunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
 
             # make a list of the setlist files for this chromosome
-            group_files = [f for f in Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt') if not f.name.startswith('._')]
+            group_files = [f for f in Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt') if
+                           not f.name.startswith('._')]
             if not group_files:
                 continue  # skip chromosomes with no group file
 
@@ -144,7 +145,7 @@ class SAIGERunner(ToolRunner):
                 inputs={
                     'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
                     'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
-                    'sample_file':self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
+                    'sample_file': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
                     'chromosome': chromosome,
                     "tarball_prefixes": [str(p) for p in self._association_pack.tarball_prefixes],
                     'gmmatmodelfile': gmmatmodelfile,
@@ -349,6 +350,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
           f'--groupFile={tarball_prefix}.{chromosome}.SAIGE.groupFile.txt ' \
           f'--is_output_moreDetails=TRUE ' \
           f'--maxMAF_in_groupTest=0.5 ' \
+          f'–-minMAC 0.5 ' \
           f'--maxMissing=1 ' \
           f'--chrom={chromosome_saige} ' \
           f'--annotation_in_groupTest=foo '
