@@ -99,6 +99,17 @@ class GLMRunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
             # set the chunk that we are working with
             working_chunk = self._association_pack.bgen_dict[chromosome]
+
+            # tarball BGEN files
+            bgen_filename = [f for f in Path('.').glob(f'*{chromosome}.BOLT.bgen') if not f.name.startswith('._')]
+            bgen_index_filename = [f for f in Path('.').glob(f'*{chromosome}.BOLT.bgen.bgi') if
+                                   not f.name.startswith('._')]
+            bgen_sample_filename = [f for f in Path('.').glob(f'*{chromosome}.BOLT.sample') if
+                                    not f.name.startswith('._')]
+            bolt_bgen = exporter.export_files(bgen_filename)
+            bolt_bgen_index = exporter.export_files(bgen_index_filename)
+            bolt_bgen_sample = exporter.export_files(bgen_sample_filename)
+
             launcher.launch_job(
                 function=run_glm_chromosome_subjob,
                 inputs={
@@ -112,6 +123,9 @@ class GLMRunner(ToolRunner):
                     'bgen_file': working_chunk['bgen'].get_input_str(),
                     'bgen_index': working_chunk['index'].get_input_str(),
                     'bgen_sample': working_chunk['sample'].get_input_str(),
+                    'bolt_bgen': bolt_bgen,
+                    'bolt_bgen_index': bolt_bgen_index,
+                    'bolt_bgen_sample': bolt_bgen_sample
                 },
                 outputs=['results_file']
             )
@@ -131,7 +145,8 @@ class GLMRunner(ToolRunner):
 @dxpy.entry_point('run_glm_chromosome_subjob')
 def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any],
                               transcripts_table_dxfile: Dict[str, Any], tarball_prefixes: List[str], tarball_type: str,
-                              bgen_file: str, bgen_index: str, bgen_sample: str,
+                              bgen_file: str, bgen_index: str, bgen_sample: str, bolt_bgen: str, bolt_bgen_index: str,
+                              bolt_bgen_sample: str,
                               is_binary: bool, threads: int) -> Dict[str, Any]:
     """A subjob to run GLM models for a single chromosome across all tarballs.
 
@@ -143,14 +158,26 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
     :param bgen_file: file ID for the BGEN file.
     :param bgen_index: file ID for the BGEN index.
     :param bgen_sample: file ID for the BGEN sample file.
+    :param bolt_bgen: file ID for the BOLT BGEN file.
+    :param bolt_bgen_index: file ID for the BOLT BGEN index.
+    :param bolt_bgen_sample: file ID for the BOLT BGEN sample file.
     :param is_binary: Boolean indicating if the phenotype is binary.
     :param threads: Number of threads to use for parallel processing.
     :return: A dictionary containing the DNAnexus file ID for the pickled list of gene results.
     """
-    # download genetic data
+
+    # Download genetic data with the constructed names
     InputFileHandler(bgen_file, download_now=True).get_file_handle()
     InputFileHandler(bgen_index, download_now=True).get_file_handle()
     InputFileHandler(bgen_sample, download_now=True).get_file_handle()
+
+    # Download BOLT Data (Fix: iterate because input is a list)
+    for f in bolt_bgen:
+        InputFileHandler(f, download_now=True).get_file_handle()
+    for f in bolt_bgen_index:
+        InputFileHandler(f, download_now=True).get_file_handle()
+    for f in bolt_bgen_sample:
+        InputFileHandler(f, download_now=True).get_file_handle()
 
     # print all files in the current directory
     for file in os.listdir('.'):
@@ -184,7 +211,7 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
     # Run linear models for all genes in this chunk
     runner_thread_utility = ThreadUtility(threads=threads)
     for result in loader_thread_utility:
-        tarball_prefix = result['tarball_prefix']
+        current_tarball_prefix = result['tarball_prefix']
         genotype_dict = result['genotype_dict']
 
         genes_to_run = genotype_dict.index.levels[0]
@@ -194,7 +221,7 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
                                              inputs={'linear_model_pack': null_model,
                                                      'genotype_table': genotype_dict,
                                                      'gene': gene,
-                                                     'mask_name': tarball_prefix,
+                                                     'mask_name': current_tarball_prefix,
                                                      'is_binary': is_binary},
                                              outputs=['gene_dict'])
 
