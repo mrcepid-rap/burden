@@ -99,8 +99,6 @@ class GLMRunner(ToolRunner):
         dnanexus_transcripts_table = exporter.export_files(transcripts_table_path)
 
         for chromosome in self._association_pack.bgen_dict:
-            # set the chunk that we are working with
-            working_chunk = self._association_pack.bgen_dict[chromosome]
 
             # tarball BGEN files
             bgen_filename = [f for f in Path('.').glob(f'*{chromosome}.BOLT.bgen') if not f.name.startswith('._')]
@@ -114,6 +112,7 @@ class GLMRunner(ToolRunner):
                 self._logger.info(f"No BOLT bgen file found for chromosome {chromosome}, skipping job launch.")
                 continue
 
+            # export BOLT bgen files
             bolt_bgen = exporter.export_files(bgen_filename)
             bolt_bgen_index = exporter.export_files(bgen_index_filename)
             bolt_bgen_sample = exporter.export_files(bgen_sample_filename)
@@ -128,9 +127,6 @@ class GLMRunner(ToolRunner):
                     'tarball_type': self._association_pack.tarball_type.value,
                     'is_binary': self._association_pack.is_binary,
                     'threads': self._association_pack.threads,
-                    'bgen_file': working_chunk['bgen'].get_input_str(),
-                    'bgen_index': working_chunk['index'].get_input_str(),
-                    'bgen_sample': working_chunk['sample'].get_input_str(),
                     'bolt_bgen': bolt_bgen,
                     'bolt_bgen_index': bolt_bgen_index,
                     'bolt_bgen_sample': bolt_bgen_sample
@@ -153,13 +149,8 @@ class GLMRunner(ToolRunner):
 @dxpy.entry_point('run_glm_chromosome_subjob')
 def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any],
                               transcripts_table_dxfile: Dict[str, Any], tarball_prefixes: List[str], tarball_type: str,
-                              bgen_file: str, bgen_index: str, bgen_sample: str,
                               bolt_bgen: List[Any], bolt_bgen_index: List[Any], bolt_bgen_sample: List[Any],
                               is_binary: bool, threads: int) -> Dict[str, Any]:
-    # Download genetic data with the constructed names
-    InputFileHandler(bgen_file, download_now=True).get_file_handle()
-    InputFileHandler(bgen_index, download_now=True).get_file_handle()
-    InputFileHandler(bgen_sample, download_now=True).get_file_handle()
 
     # Download BOLT Data (Fix: iterate because input is a list)
     for f in bolt_bgen:
@@ -168,10 +159,6 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
         InputFileHandler(f, download_now=True).get_file_handle()
     for f in bolt_bgen_sample:
         InputFileHandler(f, download_now=True).get_file_handle()
-
-    # print all files in the current directory
-    for file in os.listdir('.'):
-        print(file)
 
     # Load the null model
     null_model_file = InputFileHandler(null_model_dxfile).get_file_handle()
