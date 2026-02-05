@@ -22,14 +22,7 @@ class GLMRunner(ToolRunner):
     """Run the GLM workflow over all tarball prefixes and available genes."""
 
     def run_tool(self) -> None:
-        """Load input data, fit models, persist results, and generate plots.
-
-        This method coordinates the entire GLM workflow, including:
-        1. Running the null linear model.
-        2. Launching parallel subjobs to run gene-level GLMs for each chromosome.
-        3. Processing and annotating the results.
-        4. Generating Manhattan plots.
-        """
+        """Load input data, fit models, persist results, and generate plots."""
 
         # 1. Do setup for the linear models & get the null model
         self._logger.info("Loading data and running null Linear Model")
@@ -45,43 +38,52 @@ class GLMRunner(ToolRunner):
 
         # 3. Annotate unformatted results and print final tabular outputs
         self._logger.info("Processing Linear Model results")
-        output_path = Path(f'{self._output_prefix}.genes.GLM.stats.tsv')
-        self._outputs.extend(process_model_outputs(all_completed_models,
-                                                   output_path,
-                                                   self._association_pack.tarball_type,
-                                                   self._transcripts_table))
 
-        # 4. Generate Manhattan Plots
-        plot_dir = Path(f'{self._output_prefix}_plots')
-        plot_dir.mkdir(parents=True, exist_ok=True)
-        self._outputs.append(plot_dir)
-        glm_table = pd.read_csv(Path(f'{self._output_prefix}.genes.GLM.stats.tsv.gz'), sep='\t')
+        # Filter out results for genes that are not in the transcripts table
+        valid_genes = set(self._transcripts_table.index)
+        all_completed_models = [m for m in all_completed_models if m.ENST in valid_genes]
 
-        mask_values = glm_table['MASK'].value_counts().index
-        maf_values = glm_table['MAF'].value_counts().index
+        if all_completed_models:
+            output_path = Path(f'{self._output_prefix}.genes.GLM.stats.tsv')
+            self._outputs.extend(process_model_outputs(all_completed_models,
+                                                       output_path,
+                                                       self._association_pack.tarball_type,
+                                                       self._transcripts_table))
 
-        for mask in mask_values:
-            for maf in maf_values:
-                # To note on the below: I use SYMBOL for the id_column parameter below because ENST is the
-                # index and I don't currently have a way to pass the index through to the Plotter methods...
-                manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
-                                                     glm_table.query(f'MASK == "{mask}" & MAF == "{maf}"'),
-                                                     chrom_column='chrom', pos_column='start',
-                                                     alt_column=None,
-                                                     id_column='SYMBOL', p_column='p_val_init',
-                                                     csq_column='MASK',
-                                                     maf_column='cMAC', gene_symbol_column='SYMBOL',
-                                                     clumping_distance=1,
-                                                     maf_cutoff=30,
-                                                     sig_threshold=1E-6)
-                manhattan_plotter.plot()[0].rename(plot_dir / f'{mask}.{maf}.genes.GLM.png')
+            # 4. Generate Manhattan Plots
+            plot_dir = Path(f'{self._output_prefix}_plots')
+            plot_dir.mkdir(parents=True, exist_ok=True)
+            self._outputs.append(plot_dir)
+
+            stats_gz = Path(f'{self._output_prefix}.genes.GLM.stats.tsv.gz')
+            if stats_gz.exists():
+                glm_table = pd.read_csv(stats_gz, sep='\t')
+
+                if not glm_table.empty:
+                    mask_values = glm_table['MASK'].value_counts().index
+                    maf_values = glm_table['MAF'].value_counts().index
+
+                    for mask in mask_values:
+                        for maf in maf_values:
+                            manhattan_plotter = ManhattanPlotter(self._association_pack.cmd_executor,
+                                                                 glm_table.query(f'MASK == "{mask}" & MAF == "{maf}"'),
+                                                                 chrom_column='chrom', pos_column='start',
+                                                                 alt_column=None,
+                                                                 id_column='SYMBOL', p_column='p_val_init',
+                                                                 csq_column='MASK',
+                                                                 maf_column='cMAC', gene_symbol_column='SYMBOL',
+                                                                 clumping_distance=1,
+                                                                 maf_cutoff=30,
+                                                                 sig_threshold=1E-6)
+
+                            plots = manhattan_plotter.plot()
+                            if plots:
+                                plots[0].rename(plot_dir / f'{mask}.{maf}.genes.GLM.png')
+        else:
+            self._logger.warning("No valid models found after filtering.")
 
     def _launch_glm_jobs(self, null_model: object) -> List[Dict[str, Any]]:
-        """Launch a subjob for each chromosome to run GLM associations.
-
-        :param null_model: A pre-computed null model to use for association testing.
-        :return: A list of dictionaries, where each dictionary is a completed model.
-        """
+        """Launch a subjob for each chromosome to run GLM associations."""
         launcher = joblauncher_factory(download_on_complete=True)
         exporter = ExportFileHandler(delete_on_upload=False)
 
@@ -151,27 +153,9 @@ class GLMRunner(ToolRunner):
 @dxpy.entry_point('run_glm_chromosome_subjob')
 def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any],
                               transcripts_table_dxfile: Dict[str, Any], tarball_prefixes: List[str], tarball_type: str,
-                              bgen_file: str, bgen_index: str, bgen_sample: str, bolt_bgen: str, bolt_bgen_index: str,
-                              bolt_bgen_sample: str,
+                              bgen_file: str, bgen_index: str, bgen_sample: str,
+                              bolt_bgen: List[Any], bolt_bgen_index: List[Any], bolt_bgen_sample: List[Any],
                               is_binary: bool, threads: int) -> Dict[str, Any]:
-    """A subjob to run GLM models for a single chromosome across all tarballs.
-
-    :param chromosome: Chromosome to process.
-    :param null_model_dxfile: DNAnexus file ID for the pickled null model.
-    :param transcripts_table_dxfile: DNAnexus file ID for the transcripts table.
-    :param tarball_prefixes: A list of tarball prefixes to process.
-    :param tarball_type: The type of tarballs to load.
-    :param bgen_file: file ID for the BGEN file.
-    :param bgen_index: file ID for the BGEN index.
-    :param bgen_sample: file ID for the BGEN sample file.
-    :param bolt_bgen: file ID for the BOLT BGEN file.
-    :param bolt_bgen_index: file ID for the BOLT BGEN index.
-    :param bolt_bgen_sample: file ID for the BOLT BGEN sample file.
-    :param is_binary: Boolean indicating if the phenotype is binary.
-    :param threads: Number of threads to use for parallel processing.
-    :return: A dictionary containing the DNAnexus file ID for the pickled list of gene results.
-    """
-
     # Download genetic data with the constructed names
     InputFileHandler(bgen_file, download_now=True).get_file_handle()
     InputFileHandler(bgen_index, download_now=True).get_file_handle()
@@ -197,9 +181,6 @@ def run_glm_chromosome_subjob(chromosome: str, null_model_dxfile: Dict[str, Any]
     # Load transcripts table
     transcripts_table_file = InputFileHandler(transcripts_table_dxfile).get_file_handle()
     transcripts_table = pd.read_csv(transcripts_table_file, sep='\t', index_col=0)
-
-    # Get genes for the current chromosome
-    genes_on_chrom = transcripts_table[transcripts_table['chrom'] == chromosome].index
 
     # Convert the string back to the Enum object required by load_linear_model_genetic_data
     tarball_type_enum = TarballType(tarball_type)
