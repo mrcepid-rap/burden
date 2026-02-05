@@ -106,6 +106,12 @@ class GLMRunner(ToolRunner):
                                    not f.name.startswith('._')]
             bgen_sample_filename = [f for f in Path('.').glob(f'*{chromosome}.BOLT.sample') if
                                     not f.name.startswith('._')]
+
+            # Only launch job if BOLT bgen file exists
+            if not bgen_filename:
+                self._logger.info(f"No BOLT bgen file found for chromosome {chromosome}, skipping job launch.")
+                continue
+
             bolt_bgen = exporter.export_files(bgen_filename)
             bolt_bgen_index = exporter.export_files(bgen_index_filename)
             bolt_bgen_sample = exporter.export_files(bgen_sample_filename)
