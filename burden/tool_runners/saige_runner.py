@@ -350,7 +350,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
           f'--groupFile={tarball_prefix}.{chromosome}.SAIGE.groupFile.txt ' \
           f'--is_output_moreDetails=TRUE ' \
           f'--maxMAF_in_groupTest=0.5 ' \
-          f'–-minMAC 0.5 ' \
+          f'--minMAC=0.5 ' \
           f'--maxMissing=1 ' \
           f'--chrom={chromosome_saige} ' \
           f'--annotation_in_groupTest=foo '
