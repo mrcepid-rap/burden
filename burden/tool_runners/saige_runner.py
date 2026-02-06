@@ -262,12 +262,9 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     sparsegrmfile = InputFileHandler(sparsegrmfile).get_file_handle()
     sparsegrmsampleidfile = InputFileHandler(sparsegrmsampleidfile).get_file_handle()
     varianceratiofile = InputFileHandler(varianceratiofile).get_file_handle()
-    # Download AND REPAIR group files
-    local_group_files = []
+    # Download group files
     for group_file in group_files:
-        raw_file = InputFileHandler(group_file, download_now=True).get_file_handle()
-        fixed_file = repair_group_file(input_path=raw_file)
-        local_group_files.append(fixed_file)
+        group_file = InputFileHandler(group_file, download_now=True).get_file_handle()
 
     # 4. Run step 2 of SAIGE
     LOGGER.info("Running SAIGE step 2")
@@ -381,28 +378,3 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
 
     return tarball_prefix, chromosome, saige_log_file, saige_output
 
-
-def repair_group_file(input_path: Path) -> Path:
-    """
-    Reads a corrupted group file, inserts missing tabs, and saves a fixed version.
-    Handles 'chr' gluing and 'foo' gluing. Overwrites the input file to keep filenames consistent.
-    """
-    temp_output_path = input_path.parent / f"TEMP_FIXED_{input_path.name}"
-
-    with input_path.open('r') as infile, temp_output_path.open('w') as outfile:
-        for line in infile:
-            # 1. Strip whitespace to handle messy ends
-            clean_line = line.strip()
-
-            # 2. Fix the "Glued Variants" (e.g., :Tchr7 -> :T\tchr7)
-            # Look for any standard base (A,C,G,T) followed immediately by 'chr'
-            clean_line = re.sub(r'([ACGT])(?=chr[0-9XYMT]+|[0-9]{1,2}:)', r'\1\t', clean_line)
-
-            # 3. Fix the "Glued Annotations" (e.g., foofoo -> foo\tfoo)
-            clean_line = re.sub(r'foo(?=foo)', 'foo\t', clean_line)
-
-            outfile.write(clean_line + "\n")
-
-    # Overwrite the original file with the fixed version so downstream commands don't break
-    temp_output_path.replace(input_path)
-    return input_path
