@@ -329,6 +329,7 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     :param sparsegrmfile: The sparse GRM file to use
     :param sparsegrmsampleidfile: The sparse GRM sample ID file to use
     :param is_binary: Is the phenotype binary?
+    :param varianceratiofile: The variance ratio file from step 1
 
     :return: tarball_prefix, chromosome, saige_log_file
     """
