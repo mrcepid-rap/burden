@@ -42,7 +42,7 @@ class GLMRunner(ToolRunner):
         valid_genes = set(self._transcripts_table.index)
         all_completed_models = [m for m in all_completed_models if m.ENST in valid_genes]
 
-        if all_completed_models:
+        if len(all_completed_models) > 0:
             output_path = Path(f'{self._output_prefix}.genes.GLM.stats.tsv')
             self._outputs.extend(process_model_outputs(all_completed_models,
                                                        output_path,
