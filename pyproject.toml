@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "burden"
-version = "2.0.0"
+version = "2.0.1"
 description = "Burden analysis pipeline"
 authors = [
   { name = "Eugene Gardner", email = "eugene.gardner@mrc-epid.cam.ac.uk" },
@@ -23,7 +23,7 @@ dependencies = [
     "zstd==1.5.5.1",
     "toml>=0.10.2,<0.11.0",
     "pytest>=7.4.0,<8.0.0",
-    "general-utilities @ git+https://github.com/mrcepid-rap/general_utilities.git@v2.0.0",
+    "general-utilities @ git+https://github.com/mrcepid-rap/general_utilities.git@v2.0.1",
     "matplotlib>=3.7.5",
 ]
 
