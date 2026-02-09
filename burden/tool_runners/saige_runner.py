@@ -130,8 +130,8 @@ class SAIGERunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
 
             # make a list of the setlist files for this chromosome
-            group_files = [f for f in Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt') if
-                           not f.name.startswith('._')]
+            group_files = [file for file in Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt') if
+                           not file.name.startswith('._')]
             if not group_files:
                 continue  # skip chromosomes with no group file
 
