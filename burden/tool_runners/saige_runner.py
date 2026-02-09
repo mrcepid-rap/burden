@@ -160,11 +160,11 @@ class SAIGERunner(ToolRunner):
         step2_outputs = []
         for result in launcher:
             # result["output"] is already a list of dicts
-            for r in result["output"]:
+            for file in result["output"]:
                 # download subjob outputs to local machine
-                InputFileHandler(r["saige_log_file"])
-                InputFileHandler(r["saige_output"])
-                step2_outputs.append(r)
+                InputFileHandler(file["saige_log_file"], download_now=True)
+                InputFileHandler(file["saige_output"], download_now=True)
+                step2_outputs.append(file)
 
         return step2_outputs
 
