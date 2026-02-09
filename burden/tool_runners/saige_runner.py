@@ -1,11 +1,12 @@
-import re
+from pathlib import Path
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
 
 import dxpy
 import pandas as pd
+from bgen import BgenReader
 from general_utilities.association_resources import define_field_names_from_tarball_prefix, \
-    bgzip_and_tabix, LOGGER
+    bgzip_and_tabix, LOGGER, get_chromosome_from_bgen
 from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
 from general_utilities.job_management.command_executor import build_default_command_executor
@@ -77,6 +78,7 @@ class SAIGERunner(ToolRunner):
         # there are too few low MAC variants in the genotype files to perform this step accurately. The SAIGE
         # documentation includes this step, but I am very unsure how it works...
         cmd = f'step1_fitNULLGLMM.R ' \
+              f'--plinkFile={self._association_pack.genetic_filename} ' \
               f'--phenoFile={phenofile} ' \
               f'--phenoCol={self._association_pack.pheno_names[0]} ' \
               f'--isCovariateTransform=FALSE ' \
@@ -88,25 +90,19 @@ class SAIGERunner(ToolRunner):
               f'--LOCO=FALSE ' \
               f'--skipModelFitting=FALSE ' \
               f'--useSparseGRMtoFitNULL=TRUE ' \
-              f'--skipVarianceRatioEstimation=TRUE '
+              f'--skipVarianceRatioEstimation=FALSE ' \
+              f'--isCateVarianceRatio=FALSE ' \
+              f'--useSparseGRMforVarRatio=TRUE ' \
+              f'--IsOverwriteVarianceRatioFile=TRUE '
+
         if self._association_pack.is_binary:
             cmd = cmd + f'--traitType=binary '
         else:
             cmd = cmd + f'--traitType=quantitative '
 
         # Manage covariates
-        if self._association_pack.ignore_base_covariates:
-            all_covariates = []
-            cat_covars = []
-        else:
-            all_covariates = [f'PC{PC}' for PC in range(1, 11)] + ['age', 'age_squared', 'batch']
-            if self._association_pack.sex == 2:
-                all_covariates.append('sex')
-            cat_covars = ['batch']
-
-        all_covariates.extend(self._association_pack.found_quantitative_covariates)
-        all_covariates.extend(self._association_pack.found_categorical_covariates)
-        cat_covars.extend(self._association_pack.found_categorical_covariates)
+        all_covariates = self._association_pack.found_quantitative_covariates + self._association_pack.found_categorical_covariates
+        cat_covars = self._association_pack.found_categorical_covariates
 
         if len(all_covariates) > 0:
             cmd = cmd + f'--covarColList=' + ','.join(all_covariates) + ' '
@@ -126,7 +122,7 @@ class SAIGERunner(ToolRunner):
         """
 
         # set the launcher
-        launcher = joblauncher_factory()
+        launcher = joblauncher_factory(download_on_complete=True)
 
         # set the exporter
         exporter = ExportFileHandler(delete_on_upload=False)
@@ -134,14 +130,10 @@ class SAIGERunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
 
             # make a list of the setlist files for this chromosome
-            group_files = list(Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt'))
+            group_files = [file for file in Path('.').glob(f'*.{chromosome}.SAIGE.groupFile.txt') if
+                           not file.name.startswith('._')]
             if not group_files:
                 continue  # skip chromosomes with no group file
-
-            # export the files for each subjob
-            gmmatmodelfile = exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda")
-            sparsegrmfile = exporter.export_files(f"{self._association_pack.sparse_grm}")
-            sparsegrmsampleidfile = exporter.export_files(f"{self._association_pack.sparse_grm_sample}")
 
             group_files = [exporter.export_files(gf) for gf in group_files]
 
@@ -150,12 +142,14 @@ class SAIGERunner(ToolRunner):
                 inputs={
                     'bgen_file': self._association_pack.bgen_dict[chromosome]['bgen'].get_input_str(),
                     'bgen_index': self._association_pack.bgen_dict[chromosome]['index'].get_input_str(),
-                    'sample_file':self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
+                    'sample_file': self._association_pack.bgen_dict[chromosome]['sample'].get_input_str(),
                     'chromosome': chromosome,
-                    "tarball_prefixes": self._association_pack.tarball_prefixes,
-                    'gmmatmodelfile': gmmatmodelfile,
-                    'sparsegrmfile': sparsegrmfile,
-                    'sparsegrmsampleidfile': sparsegrmsampleidfile,
+                    "tarball_prefixes": [str(prefix) for prefix in self._association_pack.tarball_prefixes],
+                    'gmmat_model_file': exporter.export_files(f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.rda"),
+                    'variance_ratio_file': exporter.export_files(
+                        f"{self._association_pack.pheno_names[0]}.SAIGE_OUT.varianceRatio.txt"),
+                    'sparse_grm_file': exporter.export_files(f"{self._association_pack.sparse_grm}"),
+                    'sparse_grm_sampleid_file': exporter.export_files(f"{self._association_pack.sparse_grm_sample}"),
                     'group_files': group_files,
                     'is_binary': self._association_pack.is_binary
                 },
@@ -168,15 +162,15 @@ class SAIGERunner(ToolRunner):
             # result["output"] is already a list of dicts
             for r in result["output"]:
                 # download subjob outputs to local machine
-                InputFileHandler(r["saige_log_file"], download_now=True)
-                InputFileHandler(r["saige_output"], download_now=True)
+                InputFileHandler(r["saige_log_file"])
+                InputFileHandler(r["saige_output"])
                 step2_outputs.append(r)
 
         return step2_outputs
 
     def _process_saige_output(self, tarball_prefix: str, chromosome: str) -> pd.DataFrame:
         # Load the raw table
-        saige_table = pd.read_csv(tarball_prefix + "." + chromosome + ".SAIGE_OUT.SAIGE.gene.txt", sep='\t')
+        saige_table = pd.read_csv(f"{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt", sep='\t')
         saige_table = saige_table.rename(columns={'Region': 'ENST'})
         saige_table = saige_table.drop(columns=['Group', 'max_MAF'])
 
@@ -231,9 +225,9 @@ class SAIGERunner(ToolRunner):
 
 @dxpy.entry_point('run_saige_step_two')
 def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
-                       chromosome: str, tarball_prefixes: List[str], gmmatmodelfile: str,
-                       sparsegrmfile: str, sparsegrmsampleidfile: str, group_files: List[str],
-                       is_binary: bool) -> Dict[str, Any]:
+                       chromosome: str, tarball_prefixes: List[str], gmmat_model_file: str,
+                       sparse_grm_file: str, sparse_grm_sampleid_file: str, group_files: List[str],
+                       is_binary: bool, variance_ratio_file: str) -> Dict[str, Any]:
     """
     A wrapper function to allow for multithreading of SAIGE step 2 by chromosome.
 
@@ -242,11 +236,12 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     :param sample_file: The sample file to use
     :param chromosome: The chromosome / chunk to run SAIGE on
     :param tarball_prefixes: The tarball prefixes to run SAIGE on
-    :param gmmatmodelfile: The GMMAT model file from step 1
-    :param sparsegrmfile: The sparse GRM file to use
-    :param sparsegrmsampleidfile: The sparse GRM sample ID file to use
+    :param gmmat_model_file: The GMMAT model file from step 1
+    :param sparse_grm_file: The sparse GRM file to use
+    :param sparse_grm_sampleid_file: The sparse GRM sample ID file to use
     :param group_files: The group files to use
     :param is_binary: Is the phenotype binary?
+    :param variance_ratio_file: The variance ratio file from step 1
 
     :return:
     """
@@ -255,26 +250,13 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
     bgen_file = InputFileHandler(bgen_file).get_file_handle()
     bgen_index = InputFileHandler(bgen_index).get_file_handle()
     sample_file = InputFileHandler(sample_file).get_file_handle()
-    gmmatmodelfile = InputFileHandler(gmmatmodelfile).get_file_handle()
-    sparsegrmfile = InputFileHandler(sparsegrmfile).get_file_handle()
-    sparsegrmsampleidfile = InputFileHandler(sparsegrmsampleidfile).get_file_handle()
+    gmmat_model_file = InputFileHandler(gmmat_model_file).get_file_handle()
+    sparse_grm_file = InputFileHandler(sparse_grm_file).get_file_handle()
+    sparse_grm_sampleid_file = InputFileHandler(sparse_grm_sampleid_file).get_file_handle()
+    variance_ratio_file = InputFileHandler(variance_ratio_file).get_file_handle()
+    # Download group files
     for group_file in group_files:
         group_file = InputFileHandler(group_file, download_now=True).get_file_handle()
-
-        # TODO: remove this - need to fix it in collapsevariants
-        # --- FIX: normalize variant IDs from ':' to '_' for BGEN matching ---
-        group_path = Path(group_file)
-        tmp_path = group_path.with_suffix(group_path.suffix + ".tmp")
-        with group_path.open('r') as infile, tmp_path.open('w') as outfile:
-            for line in infile:
-                parts = line.rstrip('\n').split('\t')
-                if len(parts) > 2:
-                    for i in range(2, len(parts)):
-                        parts[i] = parts[i].replace(':', '_')
-                outfile.write('\t'.join(parts) + '\n')
-        tmp_path.replace(group_path)  # overwrite original in place
-        LOGGER.info(f"Fixed variant delimiters in {group_path.name}")
-        # --- END FIX ---
 
     # 4. Run step 2 of SAIGE
     LOGGER.info("Running SAIGE step 2")
@@ -293,10 +275,11 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
                                           "bgen_file": bgen_file,
                                           "bgen_index": bgen_index,
                                           "sample_file": sample_file,
-                                          "gmmatmodelfile": gmmatmodelfile,
-                                          "sparsegrmfile": sparsegrmfile,
-                                          "sparsegrmsampleidfile": sparsegrmsampleidfile,
-                                          "is_binary": is_binary
+                                          "gmmat_model_file": gmmat_model_file,
+                                          "sparse_grm_file": sparse_grm_file,
+                                          "sparse_grm_sampleid_file": sparse_grm_sampleid_file,
+                                          "is_binary": is_binary,
+                                          "variance_ratio_file": variance_ratio_file,
                                       },
                                       outputs=[
                                           "tarball_prefix",
@@ -325,8 +308,8 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
 
 # This is a helper function to parallelise SAIGE step 2 by chromosome
 # This returns the tarball_prefix and chromosome number to make it easier to generate output
-def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, sample_file, gmmatmodelfile,
-                   sparsegrmfile, sparsegrmsampleidfile, is_binary) -> Tuple[str, str, Path, Path]:
+def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, sample_file, gmmat_model_file,
+                   sparse_grm_file, sparse_grm_sampleid_file, is_binary, variance_ratio_file) -> Tuple[str, str, Path, Path]:
     """
     Run SAIGE step 2 for a given chromosome.
     :param tarball_prefix: prefix for the tarball file (input)
@@ -334,10 +317,11 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     :param bgen_file: The bgen file to use
     :param bgen_index: The bgen index file to use
     :param sample_file: The sample file to use
-    :param gmmatmodelfile: The GMMAT model file from step 1
-    :param sparsegrmfile: The sparse GRM file to use
-    :param sparsegrmsampleidfile: The sparse GRM sample ID file to use
+    :param gmmat_model_file: The GMMAT model file from step 1
+    :param sparse_grm_file: The sparse GRM file to use
+    :param sparse_grm_sampleid_file: The sparse GRM sample ID file to use
     :param is_binary: Is the phenotype binary?
+    :param variance_ratio_file: The variance ratio file from step 1
 
     :return: tarball_prefix, chromosome, saige_log_file
     """
@@ -349,34 +333,38 @@ def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, 
     # 2. run with the addition of a filtered sample file and a flag (if exists) that can be used to filter
     # 3. run with a plink filtering command (worst case scenario) to filter the bgen file by sample inclusion
 
-    # chromsomes should be stripped of
-    if chromosome.startswith("chr"):
-        chromosome_num = re.match(r'chr(\d+)_', chromosome).group(1)
-    else:
-        chromosome_num = chromosome
+    # SAIGE wants to know the chromosome that we are working with
+    chromosome_num = chromosome.split('_')[0]
+    with BgenReader(bgen_file, sample_path=sample_file, delay_parsing=True) as bgen_reader:
+        first_variant = next(iter(bgen_reader))
+        bgen_chrom = first_variant.chrom
+        chromosome_saige = get_chromosome_from_bgen(bgen_chrom, chromosome_num)
 
-    # See the README.md for more information on these parameters
+    # 3. Construct the command
     cmd = f'step2_SPAtests.R ' \
           f'--bgenFile={bgen_file} ' \
           f'--bgenFileIndex={bgen_index} ' \
           f'--sampleFile={sample_file} ' \
           f'--AlleleOrder=ref-first ' \
-          f'--GMMATmodelFile={gmmatmodelfile} ' \
-          f'--sparseGRMFile={sparsegrmfile} ' \
-          f'--sparseGRMSampleIDFile={sparsegrmsampleidfile} ' \
+          f'--GMMATmodelFile={gmmat_model_file} ' \
+          f'--varianceRatioFile={variance_ratio_file} ' \
+          f'--sparseGRMFile={sparse_grm_file} ' \
+          f'--sparseGRMSampleIDFile={sparse_grm_sampleid_file} ' \
           f'--LOCO=FALSE ' \
           f'--SAIGEOutputFile={tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt ' \
           f'--groupFile={tarball_prefix}.{chromosome}.SAIGE.groupFile.txt ' \
           f'--is_output_moreDetails=TRUE ' \
           f'--maxMAF_in_groupTest=0.5 ' \
+          f'--minMAC=0.5 ' \
+          f'--minMAF=0 ' \
           f'--maxMissing=1 ' \
-          f'--chrom={chromosome_num} ' \
+          f'--chrom={chromosome_saige} ' \
           f'--annotation_in_groupTest=foo '
 
     if is_binary:
-        cmd = cmd + '--is_Firth_beta=TRUE'
+        cmd = cmd + ' --is_Firth_beta=TRUE'
 
-    saige_log_file = Path(f'*.SAIGE_step2.log')
+    saige_log_file = Path(f'{tarball_prefix}.{chromosome}.SAIGE_step2.log')
     cmd_exec.run_cmd_on_docker(cmd, stdout_file=saige_log_file, print_cmd=True)
 
     saige_output = Path(f'{tarball_prefix}.{chromosome}.SAIGE_OUT.SAIGE.gene.txt')
