@@ -100,11 +100,11 @@ class GLMRunner(ToolRunner):
         for chromosome in self._association_pack.bgen_dict:
 
             # tarball BGEN files
-            bgen_filename = [f for f in Path('.').glob(f'*{chromosome}.BOLT.bgen') if not f.name.startswith('._')]
-            bgen_index_filename = [f for f in Path('.').glob(f'*{chromosome}.BOLT.bgen.bgi') if
-                                   not f.name.startswith('._')]
-            bgen_sample_filename = [f for f in Path('.').glob(f'*{chromosome}.BOLT.sample') if
-                                    not f.name.startswith('._')]
+            bgen_filename = [file for file in Path('.').glob(f'*{chromosome}.BOLT.bgen') if not file.name.startswith('._')]
+            bgen_index_filename = [file for file in Path('.').glob(f'*{chromosome}.BOLT.bgen.bgi') if
+                                   not file.name.startswith('._')]
+            bgen_sample_filename = [file for file in Path('.').glob(f'*{chromosome}.BOLT.sample') if
+                                    not file.name.startswith('._')]
 
             # Only launch job if BOLT bgen file exists
             if not bgen_filename:
