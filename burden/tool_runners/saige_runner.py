@@ -153,18 +153,27 @@ class SAIGERunner(ToolRunner):
                     'group_files': group_files,
                     'is_binary': self._association_pack.is_binary
                 },
-                outputs=['output'],
+                outputs=[
+                    "tarball_prefix",
+                    "finished_chromosome",
+                    "saige_log_file",
+                    "saige_output"
+                ]
             )
         launcher.submit_and_monitor()
 
         step2_outputs = []
         for result in launcher:
-            # result["output"] is already a list of dicts
-            for r in result["output"]:
-                # download subjob outputs to local machine
-                InputFileHandler(r["saige_log_file"])
-                InputFileHandler(r["saige_output"])
-                step2_outputs.append(r)
+            for prefix, chrom, log, output in zip(result['tarball_prefix'],
+                                                  result['finished_chromosome'],
+                                                  result['saige_log_file'],
+                                                  result['saige_output']):
+                step2_outputs.append({
+                    "tarball_prefix": prefix,
+                    "finished_chromosome": chrom,
+                    "saige_log_file": log,
+                    "saige_output": output
+                })
 
         return step2_outputs
 
@@ -290,26 +299,35 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
                                       )
     thread_utility.submit_and_monitor()
 
+    # Initialize parallel lists
+    tarball_prefixes_out = []
+    finished_chromosomes = []
+    saige_logs = []
+    saige_outputs = []
+
     # collect results from thread_utility and export files
     exporter = ExportFileHandler()
-    output = []
-    for result in thread_utility:
-        output.append({
-            "tarball_prefix": result["tarball_prefix"],
-            "finished_chromosome": result["chromosome"],
-            "saige_log_file": exporter.export_files(result["saige_log_file"]),
-            "saige_output": exporter.export_files(result["saige_output"])
-        })
 
+    for result in thread_utility:
+        # Append to separate lists instead of a dictionary
+        tarball_prefixes_out.append(result["tarball_prefix"])
+        finished_chromosomes.append(result["chromosome"])
+        saige_logs.append(exporter.export_files(result["saige_log_file"]))
+        saige_outputs.append(exporter.export_files(result["saige_output"]))
+
+    # Return parallel arrays
     return {
-        "output": output
+        "tarball_prefix": tarball_prefixes_out,
+        "finished_chromosome": finished_chromosomes,
+        "saige_log_file": saige_logs,
+        "saige_output": saige_outputs
     }
 
 
 # This is a helper function to parallelise SAIGE step 2 by chromosome
 # This returns the tarball_prefix and chromosome number to make it easier to generate output
 def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, sample_file, gmmat_model_file,
-                   sparse_grm_file, sparse_grm_sampleid_file, is_binary, variance_ratio_file) -> Tuple[str, str, Path, Path]:
+                   sparse_grm_file, sparse_grm_sampleid_file, is_binary, variance_ratio_file) -> Tuple[List[str], List[str], List[Path], List[Path]]:
     """
     Run SAIGE step 2 for a given chromosome.
     :param tarball_prefix: prefix for the tarball file (input)
