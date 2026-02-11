@@ -327,8 +327,7 @@ def run_saige_step_two(bgen_file: str, bgen_index: str, sample_file: str,
 # This is a helper function to parallelise SAIGE step 2 by chromosome
 # This returns the tarball_prefix and chromosome number to make it easier to generate output
 def saige_step_two(tarball_prefix: str, chromosome: str, bgen_file, bgen_index, sample_file, gmmat_model_file,
-                   sparse_grm_file, sparse_grm_sampleid_file, is_binary, variance_ratio_file) -> Tuple[
-    str, str, Path, Path]:
+                   sparse_grm_file, sparse_grm_sampleid_file, is_binary, variance_ratio_file) -> Tuple[List[str], List[str], List[Path], List[Path]]:
     """
     Run SAIGE step 2 for a given chromosome.
     :param tarball_prefix: prefix for the tarball file (input)
